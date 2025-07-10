@@ -1,2 +1,2 @@
 Project: Plant Health+
-Contributors: Jeffrey Hansen,
+Contributors: Jeffrey Hansen, Tal Faitelson
