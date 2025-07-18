@@ -52,9 +52,9 @@
       <number>0</number>
      </property>
      <item>
-      <widget class="QPushButton" name="tab1">
+      <widget class="QPushButton" name="myplants_tab">
        <property name="text">
-        <string>Tab 0</string>
+        <string>My Plants</string>
        </property>
        <property name="checkable">
         <bool>true</bool>
@@ -68,9 +68,9 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="tab2">
+      <widget class="QPushButton" name="logbook_tab">
        <property name="text">
-        <string>Tab 1</string>
+        <string>LogBook</string>
        </property>
        <property name="checkable">
         <bool>true</bool>
@@ -81,9 +81,9 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="tab3">
+      <widget class="QPushButton" name="plantpedia_tab">
        <property name="text">
-        <string>Tab 2</string>
+        <string>Plantpedia</string>
        </property>
        <property name="checkable">
         <bool>true</bool>
@@ -123,54 +123,63 @@
     <widget class="QStackedWidget" name="stackedWidget">
      <property name="geometry">
       <rect>
-       <x>-1</x>
+       <x>-11</x>
        <y>-1</y>
-       <width>591</width>
+       <width>601</width>
        <height>541</height>
       </rect>
      </property>
-     <widget class="QWidget" name="page">
-      <widget class="QLabel" name="label">
+     <widget class="QWidget" name="myplants_page">
+      <widget class="QLabel" name="myplants_title">
        <property name="geometry">
         <rect>
-         <x>80</x>
-         <y>30</y>
-         <width>58</width>
-         <height>16</height>
+         <x>0</x>
+         <y>0</y>
+         <width>591</width>
+         <height>31</height>
         </rect>
        </property>
        <property name="text">
-        <string>page 1</string>
+        <string>My Plants</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
        </property>
       </widget>
      </widget>
-     <widget class="QWidget" name="page_2">
-      <widget class="QLabel" name="label_3">
+     <widget class="QWidget" name="logbook_page">
+      <widget class="QLabel" name="logbook_title">
        <property name="geometry">
         <rect>
-         <x>160</x>
-         <y>130</y>
-         <width>58</width>
-         <height>16</height>
+         <x>0</x>
+         <y>0</y>
+         <width>591</width>
+         <height>31</height>
         </rect>
        </property>
        <property name="text">
-        <string>Page 2</string>
+        <string>LogBook</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
        </property>
       </widget>
      </widget>
-     <widget class="QWidget" name="page_3">
-      <widget class="QLabel" name="label_2">
+     <widget class="QWidget" name="plantpedia_page">
+      <widget class="QLabel" name="plantpedia_title">
        <property name="geometry">
         <rect>
-         <x>100</x>
-         <y>110</y>
-         <width>58</width>
-         <height>16</height>
+         <x>0</x>
+         <y>0</y>
+         <width>591</width>
+         <height>31</height>
         </rect>
        </property>
        <property name="text">
-        <string>page 3</string>
+        <string>Plantpedia</string>
+       </property>
+       <property name="alignment">
+        <set>Qt::AlignmentFlag::AlignCenter</set>
        </property>
       </widget>
      </widget>
@@ -188,6 +197,93 @@
     <property name="title">
      <string/>
     </property>
+    <widget class="QLabel" name="temp_image">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>10</y>
+       <width>20</width>
+       <height>60</height>
+      </rect>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+     <property name="pixmap">
+      <pixmap resource="images.qrc">:/images/images/thermometer-clipart-xl.png</pixmap>
+     </property>
+     <property name="scaledContents">
+      <bool>true</bool>
+     </property>
+    </widget>
+    <widget class="QLabel" name="temp_label">
+     <property name="geometry">
+      <rect>
+       <x>0</x>
+       <y>80</y>
+       <width>81</width>
+       <height>21</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>American Typewriter</family>
+       <pointsize>20</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>0.0 °F</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignmentFlag::AlignCenter</set>
+     </property>
+    </widget>
+    <widget class="QLabel" name="uv_image">
+     <property name="geometry">
+      <rect>
+       <x>11</x>
+       <y>110</y>
+       <width>58</width>
+       <height>61</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <pointsize>12</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string/>
+     </property>
+     <property name="pixmap">
+      <pixmap resource="images.qrc">:/images/images/uv.png</pixmap>
+     </property>
+     <property name="scaledContents">
+      <bool>true</bool>
+     </property>
+    </widget>
+    <widget class="QLabel" name="uv_label">
+     <property name="geometry">
+      <rect>
+       <x>0</x>
+       <y>180</y>
+       <width>81</width>
+       <height>21</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>American Typewriter</family>
+       <pointsize>20</pointsize>
+      </font>
+     </property>
+     <property name="text">
+      <string>0</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignmentFlag::AlignCenter</set>
+     </property>
+    </widget>
    </widget>
   </widget>
   <widget class="QMenuBar" name="menubar">
@@ -206,9 +302,10 @@
    </widget>
    <addaction name="menuPH"/>
   </widget>
-  <widget class="QStatusBar" name="statusbar"/>
  </widget>
- <resources/>
+ <resources>
+  <include location="images.qrc"/>
+ </resources>
  <connections/>
  <buttongroups>
   <buttongroup name="buttonGroup"/>
