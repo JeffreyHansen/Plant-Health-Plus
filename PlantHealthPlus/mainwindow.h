@@ -2,6 +2,9 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QPushButton>
+#include <QButtonGroup>
+#include <QStackedWidget>
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -22,5 +25,7 @@ private slots:
 
 private:
     Ui::MainWindow *ui;
+    QButtonGroup *buttonGroup;
+    QStackedWidget *stackedWidget;
 };
 #endif // MAINWINDOW_H

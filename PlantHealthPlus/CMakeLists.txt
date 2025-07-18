@@ -23,6 +23,7 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
     qt_add_executable(PlantHealthPlus
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
+        images.qrc
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET PlantHealthPlus APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
