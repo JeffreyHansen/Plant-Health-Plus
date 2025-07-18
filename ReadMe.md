@@ -1,2 +1,2 @@
 Project: Plant Health+
-Contributors: Jeffrey Hansen, Tal Faitelson
+Contributors: Jeffrey Hansen,Daniel Hernandez Vigil, Tal Faitelson
