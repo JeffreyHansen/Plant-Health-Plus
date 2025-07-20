@@ -1,0 +1,3 @@
+[submodule "PlantHealthPlus/vcpkg"]
+	path = PlantHealthPlus/vcpkg
+	url = https://github.com/microsoft/vcpkg.git
