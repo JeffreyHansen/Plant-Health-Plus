@@ -28,7 +28,7 @@ MainWindow::MainWindow(QWidget *parent)
     //Dynamically update the temperature and ...
     QTimer* timer = new QTimer(this);
     connect(timer, &QTimer::timeout, scraper, &Scraper::getURL);
-    timer->start(1);
+    timer->start(5000);
 
     // Get the button group and stacked widget from the UI
     QButtonGroup* buttonGroup = ui->buttonGroup;
