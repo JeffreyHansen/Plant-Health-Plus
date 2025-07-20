@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(PlantHealthPlus VERSION 0.1 LANGUAGES CXX)
+project(PlantHealthPlus VERSION 0.2 LANGUAGES CXX)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -11,12 +11,16 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
+find_package(Qt6 COMPONENTS Network REQUIRED)
+find_package(CURL REQUIRED)
+find_package (PugiXML CONFIG REQUIRED)
 
 set(PROJECT_SOURCES
         main.cpp
         mainwindow.cpp
         mainwindow.h
         mainwindow.ui
+        scraper.cpp
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -43,7 +47,12 @@ else()
     endif()
 endif()
 
-target_link_libraries(PlantHealthPlus PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
+target_link_libraries(PlantHealthPlus PRIVATE 
+	Qt${QT_VERSION_MAJOR}::Widgets
+	CURL::libcurl
+	pugixml
+        Qt6::Network
+)
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an

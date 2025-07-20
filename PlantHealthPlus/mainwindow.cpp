@@ -1,11 +1,34 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+#include <QTimer>
+#include "scraper.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+
+    Scraper* scraper = new Scraper(this);
+    connect(scraper, &Scraper::tempReady, this, [this](const QString& temp) {
+    qDebug() << temp;
+        ui->temp_label->setText(temp);
+    });
+
+    connect(scraper, &Scraper::uvReady, this, [this](const QString& uv) {
+        qDebug() << uv;
+        ui->uv_label->setText(uv);
+    });
+
+    connect(scraper, &Scraper::humidReady, this, [this](const QString& humid) {
+        qDebug() << humid;
+        ui->humid_label->setText(humid);
+    });
+
+    //Dynamically update the temperature and ...
+    QTimer* timer = new QTimer(this);
+    connect(timer, &QTimer::timeout, scraper, &Scraper::getURL);
+    timer->start(1);
 
     // Get the button group and stacked widget from the UI
     QButtonGroup* buttonGroup = ui->buttonGroup;
@@ -41,3 +64,5 @@ void MainWindow::onTabButtonClicked(int id)
     // This slot receives the button ID and changes the page
     ui->stackedWidget->setCurrentIndex(id);
 }
+
+
