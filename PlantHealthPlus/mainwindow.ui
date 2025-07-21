@@ -169,31 +169,6 @@
         <set>Qt::AlignmentFlag::AlignCenter</set>
        </property>
       </widget>
-      <widget class="QLabel" name="decor">
-       <property name="geometry">
-        <rect>
-         <x>450</x>
-         <y>400</y>
-         <width>141</width>
-         <height>141</height>
-        </rect>
-       </property>
-       <property name="font">
-        <font>
-         <family>Verdana</family>
-         <pointsize>12</pointsize>
-        </font>
-       </property>
-       <property name="text">
-        <string/>
-       </property>
-       <property name="pixmap">
-        <pixmap resource="images.qrc">:/images/images/decor.png</pixmap>
-       </property>
-       <property name="scaledContents">
-        <bool>true</bool>
-       </property>
-      </widget>
      </widget>
      <widget class="QWidget" name="logbook_page">
       <widget class="QLabel" name="logbook_title">
@@ -447,7 +422,7 @@
      <x>0</x>
      <y>0</y>
      <width>800</width>
-     <height>21</height>
+     <height>37</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuPH">
