@@ -36,9 +36,9 @@ MainWindow::MainWindow(QWidget *parent)
 
     // Assign IDs to the buttons matching page indexes
     // These IDs correspond to the page indexes in the stacked widget
-    buttonGroup->setId(ui->myplants_tab, 0);  // Tab 0 -> page (index 0)
-    buttonGroup->setId(ui->logbook_tab, 1);  // Tab 1 -> page_3 (index 1) 
-    buttonGroup->setId(ui->plantpedia_tab, 2);  // Tab 2 -> page_2 (index 2)
+    buttonGroup->setId(ui->myplants_tab, 0);  // Tab 0 -> MyPlants (index 0)
+    buttonGroup->setId(ui->logbook_tab, 1);  // Tab 1 -> LogBook (index 1)
+    buttonGroup->setId(ui->plantpedia_tab, 2);  // Tab 2 -> PlantPedia (index 2)
 
     // Connect button clicks to custom slot using new-style syntax
     connect(buttonGroup, &QButtonGroup::idClicked,
