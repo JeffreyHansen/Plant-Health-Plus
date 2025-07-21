@@ -19,6 +19,13 @@ set(PROJECT_SOURCES
         mainwindow.h
         mainwindow.ui
         scraper.cpp
+        scraper.h
+        plantcard.cpp
+        plantcard.h
+        plantmanager.cpp
+        plantmanager.h
+        addplantdialog.cpp
+        addplantdialog.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

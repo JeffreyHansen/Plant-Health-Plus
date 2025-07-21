@@ -5,6 +5,17 @@
 #include <QPushButton>
 #include <QButtonGroup>
 #include <QStackedWidget>
+#include <QScrollArea>
+#include <QGridLayout>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QVector>
+#include <QResizeEvent>
+#include <QTimer>
+#include <QEvent>
+#include "plantcard.h"
+#include "plantmanager.h"
+#include "addplantdialog.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -22,11 +33,47 @@ public:
 
 private slots:
     void onTabButtonClicked(int id);
-    
+    void onAddPlantClicked();
+    void onPlantAdded(int index);
+    void onPlantRemoved(int index);
+    void onPlantUpdated(int index);
+    void onPlantCardEdit(PlantCard* card, int index);
+    void onPlantCardDelete(PlantCard* card, int index);
+    void onPlantCardExpanded(PlantCard* card, bool expanded);
+    void refreshPlantGrid();
+    void onThemeChanged(Qt::ColorScheme colorScheme);
+    void onResizeTimeout();
 
 private:
+    void setupMyPlantsPage();
+    void updatePlantGrid();
+    void clearPlantGrid();
+    PlantCard* createPlantCard(const PlantData& plantData, int index);
+    void updateScrollAreaTheme();
+    void setupResponsiveLayout();
+    void setupPlantUILayout();
+
+protected:
+    void resizeEvent(QResizeEvent* event) override;
+    void showEvent(QShowEvent* event) override;
+    bool eventFilter(QObject* object, QEvent* event) override;
+
     Ui::MainWindow *ui;
     QButtonGroup *buttonGroup;
     QStackedWidget *stackedWidget;
+    
+    // Plant management
+    PlantManager* m_plantManager;
+    QScrollArea* m_plantsScrollArea;
+    QWidget* m_plantsContainer;
+    QGridLayout* m_plantsGridLayout;
+    QPushButton* m_addPlantButton;
+    QVector<PlantCard*> m_plantCards;
+    
+    // UI helpers
+    QTimer* m_resizeTimer;
+    
+    // Constants
+    static const int CARDS_PER_ROW = 2;
 };
 #endif // MAINWINDOW_H
