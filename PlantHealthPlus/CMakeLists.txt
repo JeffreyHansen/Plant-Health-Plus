@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.16)
 
-project(PlantHealthPlus VERSION 0.2 LANGUAGES CXX)
+project(PlantHealthPlus VERSION 0.2.11 LANGUAGES CXX)
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
@@ -12,14 +12,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 find_package(Qt6 COMPONENTS Network REQUIRED)
-
-# Set paths for Homebrew packages on macOS
-if(APPLE)
-    set(CMAKE_PREFIX_PATH "/opt/homebrew" ${CMAKE_PREFIX_PATH})
-endif()
-
-find_package(CURL REQUIRED)
-find_package(pugixml REQUIRED)
 
 set(PROJECT_SOURCES
         main.cpp
@@ -62,8 +54,6 @@ endif()
 
 target_link_libraries(PlantHealthPlus PRIVATE 
 	Qt${QT_VERSION_MAJOR}::Widgets
-	CURL::libcurl
-	pugixml::pugixml
         Qt6::Network
 )
 
