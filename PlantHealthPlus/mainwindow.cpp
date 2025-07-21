@@ -25,7 +25,7 @@ MainWindow::MainWindow(QWidget *parent)
         ui->humid_label->setText(humid);
     });
 
-    //Dynamically update the temperature and ...
+    // Periodically updates the temperature, humidity, and UV conditions to match current conditions
     QTimer* timer = new QTimer(this);
     connect(timer, &QTimer::timeout, scraper, &Scraper::getURL);
     timer->start(5000);

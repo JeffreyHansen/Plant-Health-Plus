@@ -19,7 +19,6 @@ class MainWindow : public QMainWindow
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
-    void getTemperature();
 
 private slots:
     void onTabButtonClicked(int id);
