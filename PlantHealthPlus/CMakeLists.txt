@@ -26,6 +26,8 @@ set(PROJECT_SOURCES
         plantmanager.h
         addplantdialog.cpp
         addplantdialog.h
+        rangeindicator.cpp
+        rangeindicator.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)

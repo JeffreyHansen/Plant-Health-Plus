@@ -10,6 +10,7 @@
 #include <QPropertyAnimation>
 #include <QDateTime>
 #include <QFrame>
+#include "rangeindicator.h"
 
 struct PlantData {
     QString name;
@@ -24,6 +25,14 @@ struct PlantData {
     QDateTime dateAdded;
     QString cardColor;  // New: Color for the plant card
     QString houseArea;  // New: House area/location (e.g., "Living Room", "Bedroom")
+    
+    // Environmental ranges
+    double tempRangeLow = 60.0;    // Minimum safe temperature (°F)
+    double tempRangeHigh = 85.0;   // Maximum safe temperature (°F)
+    double humidityRangeLow = 40.0;  // Minimum safe humidity (%)
+    double humidityRangeHigh = 70.0; // Maximum safe humidity (%)
+    double uvRangeLow = 0.0;       // Minimum safe UV index
+    double uvRangeHigh = 6.0;      // Maximum safe UV index
 };
 
 class PlantCard : public QFrame
@@ -41,6 +50,7 @@ public:
     // Setters
     void updatePlantData(const PlantData& data);
     void setExpanded(bool expanded);
+    void updateEnvironmentalData(double temp, double humidity, double uv);
 
 public slots:
     void toggleExpanded();
@@ -95,6 +105,16 @@ private:
     QLabel* m_wateringIntervalLabel;
     QPushButton* m_editButton;
     QPushButton* m_deleteButton;
+    
+    // Environmental range indicators
+    RangeIndicator* m_tempIndicator;
+    RangeIndicator* m_humidityIndicator;
+    RangeIndicator* m_uvIndicator;
+    
+    // Current environmental values
+    double m_currentTemp;
+    double m_currentHumidity;
+    double m_currentUV;
 
     // Animation
     QPropertyAnimation* m_animation;
@@ -102,7 +122,7 @@ private:
 public:
     // Constants
     static const int CARD_BASIC_HEIGHT = 150;
-    static const int CARD_EXPANDED_HEIGHT = 380;
+    static const int CARD_EXPANDED_HEIGHT = 420; // Increased to accommodate environmental indicators
     static const int CARD_WIDTH = 280;
 };
 

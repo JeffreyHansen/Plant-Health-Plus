@@ -52,6 +52,7 @@ private:
     void updateScrollAreaTheme();
     void setupResponsiveLayout();
     void setupPlantUILayout();
+    void updateAllPlantCardsEnvironmentalData();
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
@@ -69,6 +70,11 @@ protected:
     QGridLayout* m_plantsGridLayout;
     QPushButton* m_addPlantButton;
     QVector<PlantCard*> m_plantCards;
+    
+    // Environmental data
+    double m_currentTemp = 0.0;
+    double m_currentHumidity = 0.0;
+    double m_currentUV = 0.0;
     
     // UI helpers
     QTimer* m_resizeTimer;

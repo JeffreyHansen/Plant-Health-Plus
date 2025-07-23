@@ -1,4 +1,5 @@
 #include "plantcard.h"
+#include "rangeindicator.h"
 #include <QMouseEvent>
 #include <QGraphicsDropShadowEffect>
 #include <QFont>
@@ -14,6 +15,12 @@ PlantCard::PlantCard(const PlantData& plantData, QWidget *parent)
     , m_plantData(plantData)
     , m_expanded(false)
     , m_animation(nullptr)
+    , m_tempIndicator(nullptr)
+    , m_humidityIndicator(nullptr)
+    , m_uvIndicator(nullptr)
+    , m_currentTemp(0.0)  // Initialize with 0, will be updated with real data
+    , m_currentHumidity(0.0)  // Initialize with 0, will be updated with real data
+    , m_currentUV(0.0)  // Initialize with 0, will be updated with real data
 {
     setupUI();
     updateWateringStatus();
@@ -123,6 +130,10 @@ void PlantCard::setupBasicInfo()
     topRow->addLayout(infoColumn);
     topRow->addStretch();
     
+    // Environmental status row - will be populated when data is available
+    QHBoxLayout* envRow = new QHBoxLayout();
+    envRow->addStretch(); // Initially empty
+
     // Watering status and button row
     QHBoxLayout* waterRow = new QHBoxLayout();
     
@@ -155,6 +166,7 @@ void PlantCard::setupBasicInfo()
     waterRow->addWidget(m_waterButton);
     
     basicLayout->addLayout(topRow);
+    basicLayout->addLayout(envRow);
     basicLayout->addLayout(waterRow);
     
     m_mainLayout->addWidget(m_basicWidget);
@@ -183,6 +195,8 @@ void PlantCard::setupExpandedInfo()
     m_lightRequirement->setFont(QFont("Arial", 9, QFont::Bold));
     m_lightRequirement->setStyleSheet("color: #444; margin: 2px; padding: 2px;");
     
+    // Commented out soil type and fertilizer to reduce clutter
+    /*
     m_soilType = new QLabel(QString("Soil: %1").arg(m_plantData.soilType));
     m_soilType->setFont(QFont("Arial", 9, QFont::Bold));
     m_soilType->setStyleSheet("color: #444; margin: 2px; padding: 2px;");
@@ -190,6 +204,7 @@ void PlantCard::setupExpandedInfo()
     m_fertilizerInfo = new QLabel(QString("Fertilizer: %1").arg(m_plantData.fertilizer));
     m_fertilizerInfo->setFont(QFont("Arial", 9, QFont::Bold));
     m_fertilizerInfo->setStyleSheet("color: #444; margin: 2px; padding: 2px;");
+    */
     
     m_dateAdded = new QLabel(QString("Added: %1").arg(m_plantData.dateAdded.toString("MMM dd, yyyy")));
     m_dateAdded->setFont(QFont("Arial", 9));
@@ -216,6 +231,40 @@ void PlantCard::setupExpandedInfo()
     m_wateringIntervalLabel->setFont(QFont("Arial", 9));
     m_wateringIntervalLabel->setStyleSheet("color: #666;");
     
+    // Environmental range indicators
+    QLabel* envLabel = new QLabel("Environmental Conditions");
+    envLabel->setFont(QFont("Arial", 10, QFont::Bold));
+    envLabel->setStyleSheet("color: #2E7D32; margin-top: 8px;");
+    
+    QHBoxLayout* envLayout = new QHBoxLayout();
+    envLayout->setSpacing(8);
+    
+    // Temperature indicator
+    m_tempIndicator = new RangeIndicator("Temperature", "°F");
+    m_tempIndicator->setRange(m_plantData.tempRangeLow, m_plantData.tempRangeHigh);
+    m_tempIndicator->setCurrentValue(m_currentTemp);
+    m_tempIndicator->setCompactMode(true);
+    m_tempIndicator->setGradientType(RangeIndicator::RedGreenRed); // Ideal range in middle
+    
+    // Humidity indicator  
+    m_humidityIndicator = new RangeIndicator("Humidity", "%");
+    m_humidityIndicator->setRange(m_plantData.humidityRangeLow, m_plantData.humidityRangeHigh);
+    m_humidityIndicator->setCurrentValue(m_currentHumidity);
+    m_humidityIndicator->setCompactMode(true);
+    m_humidityIndicator->setGradientType(RangeIndicator::RedGreenRed); // Ideal range in middle
+    
+    // UV indicator
+    m_uvIndicator = new RangeIndicator("UV Index", "");
+    m_uvIndicator->setRange(m_plantData.uvRangeLow, m_plantData.uvRangeHigh);
+    m_uvIndicator->setCurrentValue(m_currentUV);
+    m_uvIndicator->setCompactMode(true);
+    m_uvIndicator->setGradientType(RangeIndicator::GreenToRed); // Traditional: low = good
+    
+    envLayout->addWidget(m_tempIndicator);
+    envLayout->addWidget(m_humidityIndicator);
+    envLayout->addWidget(m_uvIndicator);
+    envLayout->addStretch();
+
     // Action buttons
     QHBoxLayout* buttonRow = new QHBoxLayout();
     
@@ -260,11 +309,15 @@ void PlantCard::setupExpandedInfo()
     
     expandedLayout->addWidget(m_detailedNotes);
     expandedLayout->addWidget(m_lightRequirement);
-    expandedLayout->addWidget(m_soilType);
-    expandedLayout->addWidget(m_fertilizerInfo);
+    // Commented out to reduce clutter
+    // expandedLayout->addWidget(m_soilType);
+    // expandedLayout->addWidget(m_fertilizerInfo);
     expandedLayout->addWidget(m_dateAdded);
     expandedLayout->addWidget(m_lastWateredLabel);
     expandedLayout->addWidget(m_wateringIntervalLabel);
+    expandedLayout->addWidget(envLabel);
+    expandedLayout->addLayout(envLayout);
+    expandedLayout->addSpacing(10); // Add spacing before buttons
     expandedLayout->addLayout(buttonRow);
     
     m_mainLayout->addWidget(m_expandedWidget);
@@ -315,8 +368,9 @@ void PlantCard::updatePlantData(const PlantData& data)
     m_plantCategory->setText(m_plantData.category);
     m_detailedNotes->setText(m_plantData.notes);
     m_lightRequirement->setText(QString("Light: %1").arg(m_plantData.lightRequirement));
-    m_soilType->setText(QString("Soil: %1").arg(m_plantData.soilType));
-    m_fertilizerInfo->setText(QString("Fertilizer: %1").arg(m_plantData.fertilizer));
+    // Commented out to reduce clutter
+    // m_soilType->setText(QString("Soil: %1").arg(m_plantData.soilType));
+    // m_fertilizerInfo->setText(QString("Fertilizer: %1").arg(m_plantData.fertilizer));
     m_dateAdded->setText(QString("Added: %1").arg(m_plantData.dateAdded.toString("MMM dd, yyyy")));
     m_lastWateredLabel->setText(QString("Last Watered: %1").arg(m_plantData.lastWatered.toString("MMM dd, yyyy hh:mm AP")));
     
@@ -355,6 +409,17 @@ void PlantCard::updatePlantData(const PlantData& data)
         "    background-color: %2;"
         "}"
     ).arg(backgroundColor, hoverColor));
+    
+    // Update environmental range indicators if they exist
+    if (m_tempIndicator) {
+        m_tempIndicator->setRange(m_plantData.tempRangeLow, m_plantData.tempRangeHigh);
+    }
+    if (m_humidityIndicator) {
+        m_humidityIndicator->setRange(m_plantData.humidityRangeLow, m_plantData.humidityRangeHigh);
+    }
+    if (m_uvIndicator) {
+        m_uvIndicator->setRange(m_plantData.uvRangeLow, m_plantData.uvRangeHigh);
+    }
     
     updateWateringStatus();
 }
@@ -482,4 +547,78 @@ QString PlantCard::getColorHexCode(const QString& colorName) const
     };
     
     return colorMap.value(colorName, "#FFFFFF");  // Default to white if color not found
+}
+
+void PlantCard::updateEnvironmentalData(double temp, double humidity, double uv)
+{
+    m_currentTemp = temp;
+    m_currentHumidity = humidity;
+    m_currentUV = uv;
+    
+    // Update range indicators if they exist (expanded view)
+    if (m_tempIndicator) {
+        m_tempIndicator->setCurrentValue(temp);
+    }
+    if (m_humidityIndicator) {
+        m_humidityIndicator->setCurrentValue(humidity);
+    }
+    if (m_uvIndicator) {
+        m_uvIndicator->setCurrentValue(uv);
+    }
+    
+    // Update basic environmental status in basic view
+    if (m_basicWidget && (temp > 0 || humidity > 0 || uv > 0)) {
+        // Find the environmental row layout
+        QVBoxLayout* basicLayout = qobject_cast<QVBoxLayout*>(m_basicWidget->layout());
+        if (basicLayout && basicLayout->count() >= 2) {
+            QLayoutItem* envItem = basicLayout->itemAt(1); // Environmental row is second
+            if (envItem) {
+                QHBoxLayout* envRow = qobject_cast<QHBoxLayout*>(envItem->layout());
+                if (envRow) {
+                    // Clear existing widgets
+                    while (QLayoutItem* item = envRow->takeAt(0)) {
+                        if (QWidget* widget = item->widget()) {
+                            widget->deleteLater();
+                        }
+                        delete item;
+                    }
+                    
+                    // Add environmental status
+                    QLabel* envStatus = new QLabel("Environment: ");
+                    envStatus->setFont(QFont("Arial", 8));
+                    envStatus->setStyleSheet("color: #666;");
+                    
+                    QLabel* tempStatus = new QLabel(QString("T:%1°F").arg(QString::number(temp, 'f', 0)));
+                    tempStatus->setFont(QFont("Arial", 8));
+                    if (temp < m_plantData.tempRangeLow || temp > m_plantData.tempRangeHigh) {
+                        tempStatus->setStyleSheet("color: #F44336; font-weight: bold;");
+                    } else {
+                        tempStatus->setStyleSheet("color: #4CAF50; font-weight: bold;");
+                    }
+                    
+                    QLabel* humidStatus = new QLabel(QString("H:%1%").arg(QString::number(humidity, 'f', 0)));
+                    humidStatus->setFont(QFont("Arial", 8));
+                    if (humidity < m_plantData.humidityRangeLow || humidity > m_plantData.humidityRangeHigh) {
+                        humidStatus->setStyleSheet("color: #F44336; font-weight: bold;");
+                    } else {
+                        humidStatus->setStyleSheet("color: #4CAF50; font-weight: bold;");
+                    }
+                    
+                    QLabel* uvStatus = new QLabel(QString("UV:%1").arg(QString::number(uv, 'f', 0)));
+                    uvStatus->setFont(QFont("Arial", 8));
+                    if (uv < m_plantData.uvRangeLow || uv > m_plantData.uvRangeHigh) {
+                        uvStatus->setStyleSheet("color: #F44336; font-weight: bold;");
+                    } else {
+                        uvStatus->setStyleSheet("color: #4CAF50; font-weight: bold;");
+                    }
+                    
+                    envRow->addWidget(envStatus);
+                    envRow->addWidget(tempStatus);
+                    envRow->addWidget(humidStatus);
+                    envRow->addWidget(uvStatus);
+                    envRow->addStretch();
+                }
+            }
+        }
+    }
 }

@@ -29,6 +29,7 @@ private slots:
     void selectImage();
     void onAccepted();
     void addNewArea();
+    void onCategoryChanged(const QString& category);
 
 private:
     void setupUI();
@@ -53,6 +54,14 @@ private:
     QComboBox* m_areaCombo;
     QLineEdit* m_newAreaEdit;  // For creating new areas
     QPushButton* m_addAreaButton;
+    
+    // Environmental range controls
+    QDoubleSpinBox* m_tempMinSpin;
+    QDoubleSpinBox* m_tempMaxSpin;
+    QDoubleSpinBox* m_humidityMinSpin;
+    QDoubleSpinBox* m_humidityMaxSpin;
+    QDoubleSpinBox* m_uvMinSpin;
+    QDoubleSpinBox* m_uvMaxSpin;
 
     QString m_selectedImagePath;
     bool m_editMode;
