@@ -447,9 +447,9 @@ PlantCard* MainWindow::createPlantCard(const PlantData& plantData, int index)
         onPlantCardDelete(card, index);
     });
     
-    connect(card, &PlantCard::wateringUpdated, [this, index]() {
+    connect(card, &PlantCard::wateringUpdated, [this, card, index]() {
         // Update the plant data in the manager when watering is updated
-        PlantData updatedData = m_plantCards[index]->getPlantData();
+        PlantData updatedData = card->getPlantData();
         m_plantManager->updatePlant(index, updatedData);
     });
     
