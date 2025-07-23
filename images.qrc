@@ -1,0 +1,9 @@
+<RCC>
+    <qresource prefix="/images">
+        <file>images/uv.png</file>
+        <file>images/thermometer_temp.png</file>
+        <file>images/humidity.png</file>
+        <file>images/decor.png</file>
+        <file>images/splash.png</file>
+    </qresource>
+</RCC>
