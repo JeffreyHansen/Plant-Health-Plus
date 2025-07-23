@@ -28,7 +28,7 @@ AddPlantDialog::AddPlantDialog(const PlantData& plantData, QWidget *parent)
 
 void AddPlantDialog::setupUI()
 {
-    setFixedSize(400, 600);
+    setFixedSize(450, 700); // Increased size for environmental controls
     setModal(true);
 
     QVBoxLayout* mainLayout = new QVBoxLayout(this);
@@ -47,8 +47,12 @@ void AddPlantDialog::setupUI()
         "Tropical", "Succulent", "Vine", "Fern", "Flowering", 
         "Herb", "Tree", "Shrub", "Grass", "Other"
     });
-    m_categoryCombo->setEditable(true);
+    m_categoryCombo->setEditable(false);
     formLayout->addRow("Category:", m_categoryCombo);
+    
+    // Connect category selection to update defaults
+    connect(m_categoryCombo, QOverload<const QString &>::of(&QComboBox::currentTextChanged),
+            this, &AddPlantDialog::onCategoryChanged);
     
     // Watering interval
     m_wateringIntervalSpin = new QDoubleSpinBox();
@@ -68,6 +72,8 @@ void AddPlantDialog::setupUI()
     m_lightCombo->setEditable(true);
     formLayout->addRow("Light Requirement:", m_lightCombo);
     
+    // Commented out to reduce clutter - uncomment if needed
+    /*
     // Soil type
     m_soilEdit = new QLineEdit();
     m_soilEdit->setPlaceholderText("e.g., Well-draining potting mix");
@@ -77,7 +83,8 @@ void AddPlantDialog::setupUI()
     m_fertilizerEdit = new QLineEdit();
     m_fertilizerEdit->setPlaceholderText("e.g., Monthly liquid fertilizer");
     formLayout->addRow("Fertilizer:", m_fertilizerEdit);
-    
+    */
+
     // Card Color
     m_colorCombo = new QComboBox();
     m_colorCombo->addItems({
@@ -114,6 +121,71 @@ void AddPlantDialog::setupUI()
     
     connect(m_addAreaButton, &QPushButton::clicked, this, &AddPlantDialog::addNewArea);
     
+    // Environmental ranges
+    QGroupBox* envGroup = new QGroupBox("Environmental Ranges");
+    QFormLayout* envLayout = new QFormLayout(envGroup);
+    
+    // Temperature range
+    QHBoxLayout* tempRangeLayout = new QHBoxLayout();
+    m_tempMinSpin = new QDoubleSpinBox();
+    m_tempMinSpin->setRange(32.0, 120.0);
+    m_tempMinSpin->setValue(60.0);
+    m_tempMinSpin->setSuffix("°F");
+    m_tempMinSpin->setDecimals(0);
+    
+    m_tempMaxSpin = new QDoubleSpinBox();
+    m_tempMaxSpin->setRange(32.0, 120.0);
+    m_tempMaxSpin->setValue(85.0);
+    m_tempMaxSpin->setSuffix("°F");
+    m_tempMaxSpin->setDecimals(0);
+    
+    tempRangeLayout->addWidget(new QLabel("Min:"));
+    tempRangeLayout->addWidget(m_tempMinSpin);
+    tempRangeLayout->addWidget(new QLabel("Max:"));
+    tempRangeLayout->addWidget(m_tempMaxSpin);
+    
+    envLayout->addRow("Temperature:", tempRangeLayout);
+    
+    // Humidity range
+    QHBoxLayout* humidityRangeLayout = new QHBoxLayout();
+    m_humidityMinSpin = new QDoubleSpinBox();
+    m_humidityMinSpin->setRange(0.0, 100.0);
+    m_humidityMinSpin->setValue(40.0);
+    m_humidityMinSpin->setSuffix("%");
+    m_humidityMinSpin->setDecimals(0);
+    
+    m_humidityMaxSpin = new QDoubleSpinBox();
+    m_humidityMaxSpin->setRange(0.0, 100.0);
+    m_humidityMaxSpin->setValue(70.0);
+    m_humidityMaxSpin->setSuffix("%");
+    m_humidityMaxSpin->setDecimals(0);
+    
+    humidityRangeLayout->addWidget(new QLabel("Min:"));
+    humidityRangeLayout->addWidget(m_humidityMinSpin);
+    humidityRangeLayout->addWidget(new QLabel("Max:"));
+    humidityRangeLayout->addWidget(m_humidityMaxSpin);
+    
+    envLayout->addRow("Humidity:", humidityRangeLayout);
+    
+    // UV range
+    QHBoxLayout* uvRangeLayout = new QHBoxLayout();
+    m_uvMinSpin = new QDoubleSpinBox();
+    m_uvMinSpin->setRange(0.0, 15.0);
+    m_uvMinSpin->setValue(0.0);
+    m_uvMinSpin->setDecimals(1);
+    
+    m_uvMaxSpin = new QDoubleSpinBox();
+    m_uvMaxSpin->setRange(0.0, 15.0);
+    m_uvMaxSpin->setValue(6.0);
+    m_uvMaxSpin->setDecimals(1);
+    
+    uvRangeLayout->addWidget(new QLabel("Min:"));
+    uvRangeLayout->addWidget(m_uvMinSpin);
+    uvRangeLayout->addWidget(new QLabel("Max:"));
+    uvRangeLayout->addWidget(m_uvMaxSpin);
+    
+    envLayout->addRow("UV Index:", uvRangeLayout);
+
     // Image selection
     QGroupBox* imageGroup = new QGroupBox("Plant Image");
     QVBoxLayout* imageLayout = new QVBoxLayout(imageGroup);
@@ -198,6 +270,7 @@ void AddPlantDialog::setupUI()
     
     // Add everything to main layout
     mainLayout->addLayout(formLayout);
+    mainLayout->addWidget(envGroup);
     mainLayout->addWidget(imageGroup);
     mainLayout->addWidget(new QLabel("Notes:"));
     mainLayout->addWidget(m_notesEdit);
@@ -208,17 +281,31 @@ void AddPlantDialog::setupUI()
     setTabOrder(m_nameEdit, m_categoryCombo);
     setTabOrder(m_categoryCombo, m_wateringIntervalSpin);
     setTabOrder(m_wateringIntervalSpin, m_lightCombo);
-    setTabOrder(m_lightCombo, m_soilEdit);
-    setTabOrder(m_soilEdit, m_fertilizerEdit);
-    setTabOrder(m_fertilizerEdit, m_selectImageButton);
+    setTabOrder(m_lightCombo, m_colorCombo);
+    setTabOrder(m_colorCombo, m_areaCombo);
+    setTabOrder(m_areaCombo, m_tempMinSpin);
+    setTabOrder(m_tempMinSpin, m_tempMaxSpin);
+    setTabOrder(m_tempMaxSpin, m_humidityMinSpin);
+    setTabOrder(m_humidityMinSpin, m_humidityMaxSpin);
+    setTabOrder(m_humidityMaxSpin, m_uvMinSpin);
+    setTabOrder(m_uvMinSpin, m_uvMaxSpin);
+    setTabOrder(m_uvMaxSpin, m_selectImageButton);
     setTabOrder(m_selectImageButton, m_notesEdit);
     setTabOrder(m_notesEdit, m_okButton);
     setTabOrder(m_okButton, m_cancelButton);
     
-    // Set default values
+    // Set default values (create hidden soil/fertilizer objects to avoid crashes)
+    m_soilEdit = new QLineEdit(this);
+    m_soilEdit->setVisible(false);
+    m_fertilizerEdit = new QLineEdit(this);
+    m_fertilizerEdit->setVisible(false);
+    
     m_soilEdit->setText("Well-draining potting mix");
     m_fertilizerEdit->setText("Monthly liquid fertilizer");
     m_lightCombo->setCurrentText("Bright, indirect light");
+    
+    // Apply initial category defaults
+    onCategoryChanged(m_categoryCombo->currentText());
 }
 
 void AddPlantDialog::populateFields(const PlantData& plantData)
@@ -227,8 +314,9 @@ void AddPlantDialog::populateFields(const PlantData& plantData)
     m_categoryCombo->setCurrentText(plantData.category);
     m_wateringIntervalSpin->setValue(plantData.wateringIntervalDays);
     m_lightCombo->setCurrentText(plantData.lightRequirement);
-    m_soilEdit->setText(plantData.soilType);
-    m_fertilizerEdit->setText(plantData.fertilizer);
+    // Commented out since fields are hidden
+    // m_soilEdit->setText(plantData.soilType);
+    // m_fertilizerEdit->setText(plantData.fertilizer);
     m_notesEdit->setText(plantData.notes);
     
     // Set the selected color
@@ -240,6 +328,14 @@ void AddPlantDialog::populateFields(const PlantData& plantData)
     if (!plantData.houseArea.isEmpty()) {
         m_areaCombo->setCurrentText(plantData.houseArea);
     }
+    
+    // Set environmental ranges
+    m_tempMinSpin->setValue(plantData.tempRangeLow);
+    m_tempMaxSpin->setValue(plantData.tempRangeHigh);
+    m_humidityMinSpin->setValue(plantData.humidityRangeLow);
+    m_humidityMaxSpin->setValue(plantData.humidityRangeHigh);
+    m_uvMinSpin->setValue(plantData.uvRangeLow);
+    m_uvMaxSpin->setValue(plantData.uvRangeHigh);
     
     if (!plantData.imagePath.isEmpty()) {
         m_selectedImagePath = plantData.imagePath;
@@ -303,13 +399,24 @@ PlantData AddPlantDialog::createPlantData() const
     plant.wateringIntervalDays = m_wateringIntervalSpin->value();
     plant.notes = m_notesEdit->toPlainText().trimmed();
     plant.lightRequirement = m_lightCombo->currentText().trimmed();
-    plant.soilType = m_soilEdit->text().trimmed();
-    plant.fertilizer = m_fertilizerEdit->text().trimmed();
+    // Set default values since fields are commented out
+    plant.soilType = "Well-draining potting mix";
+    plant.fertilizer = "Monthly liquid fertilizer";
+    // plant.soilType = m_soilEdit->text().trimmed();
+    // plant.fertilizer = m_fertilizerEdit->text().trimmed();
     plant.dateAdded = m_editMode ? QDateTime() : QDateTime::currentDateTime(); // Don't change dateAdded when editing
     
     // New fields
     plant.cardColor = m_colorCombo->currentText();
     plant.houseArea = m_areaCombo->currentText();
+    
+    // Environmental ranges
+    plant.tempRangeLow = m_tempMinSpin->value();
+    plant.tempRangeHigh = m_tempMaxSpin->value();
+    plant.humidityRangeLow = m_humidityMinSpin->value();
+    plant.humidityRangeHigh = m_humidityMaxSpin->value();
+    plant.uvRangeLow = m_uvMinSpin->value();
+    plant.uvRangeHigh = m_uvMaxSpin->value();
     
     return plant;
 }
@@ -347,5 +454,53 @@ void AddPlantDialog::addNewArea()
         m_newAreaEdit->setVisible(true);
         m_newAreaEdit->setFocus();
         m_addAreaButton->setText("Add");
+    }
+}
+
+void AddPlantDialog::onCategoryChanged(const QString& category)
+{
+    // Plant category defaults based on the provided structure
+    struct CategoryDefaults {
+        double tempMin, tempMax;
+        double humidityMin, humidityMax;
+        double uvMin, uvMax;
+        double wateringPerWeek;
+        QString sunlight;
+    };
+    
+    QMap<QString, CategoryDefaults> defaults = {
+        {"Tropical", {55, 95, 50, 100, 0, 11, 3, "Bright, indirect light"}},
+        {"Succulent", {40, 100, 10, 60, 0, 12, 0.5, "Bright, direct light"}},
+        {"Vine", {50, 90, 40, 80, 0, 9, 2, "Medium light"}},
+        {"Fern", {45, 85, 60, 100, 0, 5, 3, "Low light"}},
+        {"Flowering", {50, 95, 30, 80, 0, 10, 2, "Bright, indirect light"}},
+        {"Herb", {50, 90, 30, 70, 0, 10, 2, "Medium light"}},
+        {"Tree", {20, 105, 20, 80, 0, 11, 1, "Bright, direct light"}},
+        {"Shrub", {30, 95, 20, 70, 0, 10, 1, "Bright, indirect light"}},
+        {"Grass", {35, 95, 30, 90, 0, 10, 2, "Medium light"}},
+        {"Other", {40, 100, 20, 80, 0, 11, 1, "Medium light"}}
+    };
+    
+    if (defaults.contains(category)) {
+        CategoryDefaults def = defaults[category];
+        
+        // Set temperature range
+        m_tempMinSpin->setValue(def.tempMin);
+        m_tempMaxSpin->setValue(def.tempMax);
+        
+        // Set humidity range
+        m_humidityMinSpin->setValue(def.humidityMin);
+        m_humidityMaxSpin->setValue(def.humidityMax);
+        
+        // Set UV range
+        m_uvMinSpin->setValue(def.uvMin);
+        m_uvMaxSpin->setValue(def.uvMax);
+        
+        // Set watering interval (convert from per week to days)
+        double wateringIntervalDays = 7.0 / def.wateringPerWeek;
+        m_wateringIntervalSpin->setValue(wateringIntervalDays);
+        
+        // Set light requirement
+        m_lightCombo->setCurrentText(def.sunlight);
     }
 }

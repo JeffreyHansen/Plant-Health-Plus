@@ -233,6 +233,12 @@ QJsonObject PlantManager::plantDataToJson(const PlantData& plant) const
     obj["dateAdded"] = plant.dateAdded.toString(Qt::ISODate);
     obj["cardColor"] = plant.cardColor;
     obj["houseArea"] = plant.houseArea;
+    obj["tempRangeLow"] = plant.tempRangeLow;
+    obj["tempRangeHigh"] = plant.tempRangeHigh;
+    obj["humidityRangeLow"] = plant.humidityRangeLow;
+    obj["humidityRangeHigh"] = plant.humidityRangeHigh;
+    obj["uvRangeLow"] = plant.uvRangeLow;
+    obj["uvRangeHigh"] = plant.uvRangeHigh;
     return obj;
 }
 
@@ -251,5 +257,14 @@ PlantData PlantManager::plantDataFromJson(const QJsonObject& json) const
     plant.dateAdded = QDateTime::fromString(json["dateAdded"].toString(), Qt::ISODate);
     plant.cardColor = json["cardColor"].toString();
     plant.houseArea = json["houseArea"].toString();
+    
+    // Environmental ranges with defaults for backwards compatibility
+    plant.tempRangeLow = json["tempRangeLow"].toDouble(60.0);
+    plant.tempRangeHigh = json["tempRangeHigh"].toDouble(85.0);
+    plant.humidityRangeLow = json["humidityRangeLow"].toDouble(40.0);
+    plant.humidityRangeHigh = json["humidityRangeHigh"].toDouble(70.0);
+    plant.uvRangeLow = json["uvRangeLow"].toDouble(0.0);
+    plant.uvRangeHigh = json["uvRangeHigh"].toDouble(6.0);
+    
     return plant;
 }

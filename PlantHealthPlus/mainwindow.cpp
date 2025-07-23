@@ -58,24 +58,55 @@ MainWindow::MainWindow(QWidget *parent)
 
     Scraper* scraper = new Scraper(this);
     connect(scraper, &Scraper::tempReady, this, [this](const QString& temp) {
-    qDebug() << temp;
+        qDebug() << temp;
         ui->temp_label->setText(temp);
+        
+        // Parse temperature and update plant cards
+        QString tempStr = temp;
+        tempStr.remove("°").remove(" ");
+        bool ok;
+        double tempValue = tempStr.toDouble(&ok);
+        if (ok) {
+            m_currentTemp = tempValue;
+            updateAllPlantCardsEnvironmentalData();
+        }
     });
 
     connect(scraper, &Scraper::uvReady, this, [this](const QString& uv) {
         qDebug() << uv;
         ui->uv_label->setText(uv);
+        
+        // Parse UV index and update plant cards
+        bool ok;
+        double uvValue = uv.toDouble(&ok);
+        if (ok) {
+            m_currentUV = uvValue;
+            updateAllPlantCardsEnvironmentalData();
+        }
     });
 
     connect(scraper, &Scraper::humidReady, this, [this](const QString& humid) {
         qDebug() << humid;
         ui->humid_label->setText(humid);
+        
+        // Parse humidity and update plant cards
+        QString humidStr = humid;
+        humidStr.remove("%").remove(" ");
+        bool ok;
+        double humidValue = humidStr.toDouble(&ok);
+        if (ok) {
+            m_currentHumidity = humidValue;
+            updateAllPlantCardsEnvironmentalData();
+        }
     });
 
     // Periodically updates the temperature, humidity, and UV conditions to match current conditions
     QTimer* timer = new QTimer(this);
     connect(timer, &QTimer::timeout, scraper, &Scraper::getURL);
     timer->start(5000);
+    
+    // Get initial data immediately
+    scraper->getURL();
 
     // Get the button group and stacked widget from the UI
     QButtonGroup* buttonGroup = ui->buttonGroup;
@@ -457,6 +488,9 @@ PlantCard* MainWindow::createPlantCard(const PlantData& plantData, int index)
         onPlantCardExpanded(expandedCard, expanded);
     });
     
+    // Initialize with current environmental data
+    card->updateEnvironmentalData(m_currentTemp, m_currentHumidity, m_currentUV);
+    
     return card;
 }
 
@@ -605,6 +639,16 @@ void MainWindow::setupPlantUILayout()
     
     // Add stackedWidget to fill the entire PlantUI
     plantUILayout->addWidget(ui->stackedWidget);
+}
+
+void MainWindow::updateAllPlantCardsEnvironmentalData()
+{
+    // Update all plant cards with current environmental data
+    for (PlantCard* card : m_plantCards) {
+        if (card) {
+            card->updateEnvironmentalData(m_currentTemp, m_currentHumidity, m_currentUV);
+        }
+    }
 }
 
 bool MainWindow::eventFilter(QObject* object, QEvent* event)
