@@ -19,6 +19,9 @@
 #include <QMap>
 #include "scraper.h"
 
+// Add this include for the Plantpedia Wikipedia widget
+#include "plantpediawidget.h"
+
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -31,26 +34,25 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     
     // Set minimum window size to ensure at least 2 plants per row
-    // Calculation: 2 cards (280px each) + 3 spacings (15px each) + scroll margins (40px) + sidebars (131px + 81px)
     int cardWidth = PlantCard::CARD_WIDTH; // 280px
     int spacing = 15;
     int scrollMargins = 40; // left + right margins for scroll area
     int leftSidebar = 131;   // Tab sidebar - fixed width
     int rightSidebar = 81;   // Conditions sidebar - fixed width
-    
-    int minWidthForPlants = (2 * cardWidth) + (3 * spacing) + scrollMargins; // 2 cards + spacings + margins = 645px
-    int totalMinWidth = minWidthForPlants + leftSidebar + rightSidebar; // 645 + 131 + 81 = 857px
-    int minHeight = PlantCard::CARD_EXPANDED_HEIGHT + 100; // Expanded card height + buffer = 480px
-    
+
+    int minWidthForPlants = (2 * cardWidth) + (3 * spacing) + scrollMargins;
+    int totalMinWidth = minWidthForPlants + leftSidebar + rightSidebar;
+    int minHeight = PlantCard::CARD_EXPANDED_HEIGHT + 100;
+
     setMinimumSize(totalMinWidth, minHeight);
     qDebug() << "Set minimum window size to:" << totalMinWidth << "x" << minHeight;
-    
+
     // Setup responsive layout for central widget
     setupResponsiveLayout();
 
     // Initialize plant manager
     m_plantManager = new PlantManager(this);
-    
+
     // Connect plant manager signals
     connect(m_plantManager, &PlantManager::plantAdded, this, &MainWindow::onPlantAdded);
     connect(m_plantManager, &PlantManager::plantRemoved, this, &MainWindow::onPlantRemoved);
@@ -60,8 +62,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(scraper, &Scraper::tempReady, this, [this](const QString& temp) {
         qDebug() << temp;
         ui->temp_label->setText(temp);
-        
-        // Parse temperature and update plant cards
+
         QString tempStr = temp;
         tempStr.remove("°").remove(" ");
         bool ok;
@@ -75,8 +76,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(scraper, &Scraper::uvReady, this, [this](const QString& uv) {
         qDebug() << uv;
         ui->uv_label->setText(uv);
-        
-        // Parse UV index and update plant cards
+
         bool ok;
         double uvValue = uv.toDouble(&ok);
         if (ok) {
@@ -88,8 +88,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(scraper, &Scraper::humidReady, this, [this](const QString& humid) {
         qDebug() << humid;
         ui->humid_label->setText(humid);
-        
-        // Parse humidity and update plant cards
+
         QString humidStr = humid;
         humidStr.remove("%").remove(" ");
         bool ok;
@@ -100,51 +99,70 @@ MainWindow::MainWindow(QWidget *parent)
         }
     });
 
-    // Periodically updates the temperature, humidity, and UV conditions to match current conditions
     QTimer* timer = new QTimer(this);
     connect(timer, &QTimer::timeout, scraper, &Scraper::getURL);
     timer->start(5000);
-    
-    // Get initial data immediately
     scraper->getURL();
 
-    // Get the button group and stacked widget from the UI
     QButtonGroup* buttonGroup = ui->buttonGroup;
     QStackedWidget* stackedWidget = ui->stackedWidget;
 
-    // Assign IDs to the buttons matching page indexes
-    // These IDs correspond to the page indexes in the stacked widget
-    buttonGroup->setId(ui->myplants_tab, 0);  // Tab 0 -> MyPlants (index 0)
-    buttonGroup->setId(ui->logbook_tab, 1);  // Tab 1 -> LogBook (index 1)
-    buttonGroup->setId(ui->plantpedia_tab, 2);  // Tab 2 -> PlantPedia (index 2)
+    buttonGroup->setId(ui->myplants_tab, 0);
+    buttonGroup->setId(ui->logbook_tab, 1);
+    buttonGroup->setId(ui->plantpedia_tab, 2);
 
-    // Connect button clicks to custom slot using new-style syntax
     connect(buttonGroup, &QButtonGroup::idClicked,
             this, &MainWindow::onTabButtonClicked);
 
-    // Also try connecting individual buttons as a backup
     connect(ui->myplants_tab, &QPushButton::clicked, [this]() { ui->stackedWidget->setCurrentIndex(0); });
     connect(ui->logbook_tab, &QPushButton::clicked, [this]() { ui->stackedWidget->setCurrentIndex(1); });
     connect(ui->plantpedia_tab, &QPushButton::clicked, [this]() { ui->stackedWidget->setCurrentIndex(2); });
 
-    // Set the initial state
     ui->myplants_tab->setChecked(true);
     stackedWidget->setCurrentIndex(0);
-    
+
     // Setup My Plants page
     setupMyPlantsPage();
-    
+
+    // Setup Plantpedia page with PlantPediaWidget (Wikipedia version)
+    {
+        // Find the Plantpedia page widget (as per .ui, should be index 2 or named ui->plantpedia_page)
+        QWidget* plantpediaPage = nullptr;
+        if (ui->stackedWidget->count() > 2) {
+            plantpediaPage = ui->stackedWidget->widget(2);
+        } else if (ui->plantpedia_page) {
+            plantpediaPage = ui->plantpedia_page;
+        }
+
+        if (plantpediaPage) {
+            // Remove any old layout/content
+            QLayout* oldLayout = plantpediaPage->layout();
+            if (oldLayout) {
+                QLayoutItem* item;
+                while ((item = oldLayout->takeAt(0))) {
+                    if (item->widget()) item->widget()->deleteLater();
+                    delete item;
+                }
+                delete oldLayout;
+            }
+            // Add our PlantPediaWidget
+            QVBoxLayout* plantpediaLayout = new QVBoxLayout(plantpediaPage);
+            plantpediaLayout->setContentsMargins(20, 20, 20, 20);
+            PlantPediaWidget *pediaWidget = new PlantPediaWidget(plantpediaPage);
+            plantpediaLayout->addWidget(pediaWidget);
+            plantpediaPage->setLayout(plantpediaLayout);
+        }
+    }
+
     // Apply initial theme
     updateScrollAreaTheme();
-    
-    // Connect to theme changes
+
     connect(QApplication::styleHints(), &QStyleHints::colorSchemeChanged,
             this, &MainWindow::onThemeChanged);
-    
-    // Setup resize timer
+
     m_resizeTimer = new QTimer(this);
     m_resizeTimer->setSingleShot(true);
-    m_resizeTimer->setInterval(100); // 100ms delay
+    m_resizeTimer->setInterval(100);
     connect(m_resizeTimer, &QTimer::timeout, this, &MainWindow::onResizeTimeout);
 }
 
@@ -152,6 +170,9 @@ MainWindow::~MainWindow()
 {
     delete ui;
 }
+
+//Created Plantpedia for users to search up related info on their houseplant
+
 
 void MainWindow::setupMyPlantsPage()
 {
