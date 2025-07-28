@@ -21,6 +21,9 @@
 #include <QDialog>
 #include <QSlider>
 #include <QTabWidget>
+#include <QListWidget>
+#include <QListWidgetItem>
+#include <QTextEdit>
 #include <QMediaPlayer>
 #include <QAudioOutput>
 #include <QStringList>
@@ -29,10 +32,14 @@
 #include <QDebug>
 #include <QFile>
 #include <QUrl>
+#include <QMessageBox>
+#include <algorithm>
 #include "plantcard.h"
 #include "plantmanager.h"
 #include "addplantdialog.h"
 #include "usermanager.h"
+#include "logbookmanager.h"
+#include "logbookentrydialog.h"
 
 // Notification structure
 struct NotificationItem {
@@ -78,6 +85,12 @@ private slots:
     void onNotificationsClicked();
     void checkPlantConditions();
     void addNotification(const QString& message);
+    
+    // Logbook slots
+    void onAddLogbookEntryClicked();
+    void onEditLogbookEntryClicked();
+    void onDeleteLogbookEntryClicked();
+    void onLogbookEntrySelected(const QString& entryId);
 
 private:
     void setupLoginPage();
@@ -100,6 +113,13 @@ private:
     void updateNotificationBadge();
     void showNotificationsDialog();
     void playNotificationSound();
+    
+    // Logbook methods
+    void setupLogbookPage();
+    void updateLogbookEntryList();
+    void displayLogbookEntry(const QString& entryId);
+    void clearLogbookDisplay();
+    void clearLogbookImagesDisplay();
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
@@ -148,6 +168,20 @@ protected:
     QMediaPlayer* m_notificationSound;
     QAudioOutput* m_audioOutput;
     int m_currentVolume;
+    
+    // Logbook system
+    LogbookManager* m_logbookManager;
+    QListWidget* m_logbookEntryList;
+    QTextEdit* m_logbookContentDisplay;
+    QScrollArea* m_logbookImagesArea;
+    QWidget* m_logbookImagesContainer;
+    QGridLayout* m_logbookImagesLayout;
+    QPushButton* m_addLogbookEntryButton;
+    QPushButton* m_editLogbookEntryButton;
+    QPushButton* m_deleteLogbookEntryButton;
+    QLabel* m_logbookEntryTitle;
+    QLabel* m_logbookEntryDates;
+    QString m_selectedLogbookEntryId;
     
     // Constants
     static const int CARDS_PER_ROW = 2;

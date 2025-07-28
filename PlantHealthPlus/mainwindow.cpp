@@ -2,6 +2,8 @@
 #include "./ui_mainwindow.h"
 #include "scraper.h"
 #include "usermanager.h"
+#include "logbookmanager.h"
+#include "logbookentrydialog.h"
 #include <QTimer>
 #include <QScrollArea>
 #include <QScrollBar>
@@ -51,9 +53,23 @@ MainWindow::MainWindow(QWidget *parent)
     , m_notificationSound(nullptr)
     , m_audioOutput(nullptr)
     , m_currentVolume(50)
+    , m_logbookManager(nullptr)
+    , m_logbookEntryList(nullptr)
+    , m_logbookContentDisplay(nullptr)
+    , m_logbookImagesArea(nullptr)
+    , m_logbookImagesContainer(nullptr)
+    , m_logbookImagesLayout(nullptr)
+    , m_addLogbookEntryButton(nullptr)
+    , m_editLogbookEntryButton(nullptr)
+    , m_deleteLogbookEntryButton(nullptr)
+    , m_logbookEntryTitle(nullptr)
+    , m_logbookEntryDates(nullptr)
 {
     // Initialize user manager
     m_userManager = new UserManager();
+    
+    // Initialize logbook manager
+    m_logbookManager = new LogbookManager();
     
     // Set window properties
     setWindowTitle("Plant Health Plus");
@@ -389,6 +405,9 @@ void MainWindow::showMainInterface()
     m_plantManager = new PlantManager(this);
     m_plantManager->setCurrentUser(username);
     
+    // Initialize logbook manager with the authenticated user
+    m_logbookManager->setCurrentUser(username);
+    
     // Load user's volume setting
     m_currentVolume = m_userManager->getUserVolume();
     
@@ -489,6 +508,10 @@ void MainWindow::showMainInterface()
     setupMyPlantsPage();
     qDebug() << "My Plants page setup complete";
     
+    // Setup Logbook page
+    setupLogbookPage();
+    qDebug() << "Logbook page setup complete";
+    
     // Apply initial theme
     updateScrollAreaTheme();
     
@@ -586,6 +609,223 @@ void MainWindow::setupMyPlantsPage()
     // Initially populate the plant grid
     updatePlantGrid();
     qDebug() << "setupMyPlantsPage completed, grid updated";
+}
+
+void MainWindow::setupLogbookPage()
+{
+    qDebug() << "setupLogbookPage called";
+    
+    // Find the Logbook page widget (assuming index 1 is Logbook)
+    QWidget* logbookPage = ui->stackedWidget->widget(1);
+    if (!logbookPage) {
+        qDebug() << "Error: Logbook page widget not found!";
+        return;
+    }
+    
+    qDebug() << "Logbook page widget found, clearing existing layout";
+    
+    // Clear existing layout if any
+    delete logbookPage->layout();
+    
+    // Create main layout for the page
+    QHBoxLayout* pageLayout = new QHBoxLayout(logbookPage);
+    pageLayout->setContentsMargins(20, 20, 20, 20);
+    pageLayout->setSpacing(15);
+    
+    // Left side - Entry list
+    QVBoxLayout* leftLayout = new QVBoxLayout();
+    
+    // Header for entry list
+    QHBoxLayout* leftHeaderLayout = new QHBoxLayout();
+    QLabel* entriesLabel = new QLabel("Journal Entries");
+    entriesLabel->setFont(QFont("Arial", 16, QFont::Bold));
+    entriesLabel->setStyleSheet("color: #2E7D32;");
+    
+    m_addLogbookEntryButton = new QPushButton("+ New Entry");
+    m_addLogbookEntryButton->setStyleSheet(
+        "QPushButton {"
+        "    background-color: #4CAF50;"
+        "    color: white;"
+        "    border: none;"
+        "    padding: 8px 16px;"
+        "    border-radius: 4px;"
+        "    font-weight: bold;"
+        "    font-size: 11px;"
+        "}"
+        "QPushButton:hover {"
+        "    background-color: #45a049;"
+        "}"
+        "QPushButton:pressed {"
+        "    background-color: #3d8b40;"
+        "}"
+    );
+    connect(m_addLogbookEntryButton, &QPushButton::clicked, this, &MainWindow::onAddLogbookEntryClicked);
+    
+    leftHeaderLayout->addWidget(entriesLabel);
+    leftHeaderLayout->addStretch();
+    leftHeaderLayout->addWidget(m_addLogbookEntryButton);
+    
+    // Entry list widget
+    m_logbookEntryList = new QListWidget();
+    m_logbookEntryList->setStyleSheet(
+        "QListWidget {"
+        "    border: 1px solid palette(mid);"
+        "    border-radius: 6px;"
+        "    background-color: palette(base);"
+        "    selection-background-color: #E8F5E8;"
+        "}"
+        "QListWidget::item {"
+        "    padding: 10px;"
+        "    border-bottom: 1px solid palette(mid);"
+        "}"
+        "QListWidget::item:hover {"
+        "    background-color: palette(alternate-base);"
+        "}"
+        "QListWidget::item:selected {"
+        "    background-color: #E8F5E8;"
+        "    color: #2E7D32;"
+        "}"
+    );
+    
+    // Enable rich text rendering for list items
+    m_logbookEntryList->setTextElideMode(Qt::ElideNone);
+    m_logbookEntryList->setWordWrap(true);
+    
+    connect(m_logbookEntryList, &QListWidget::itemClicked, [this](QListWidgetItem* item) {
+        if (item && item->data(Qt::UserRole).isValid()) {
+            QString entryId = item->data(Qt::UserRole).toString();
+            onLogbookEntrySelected(entryId);
+        }
+    });
+    
+    leftLayout->addLayout(leftHeaderLayout);
+    leftLayout->addWidget(m_logbookEntryList);
+    
+    // Right side - Entry display and editing
+    QVBoxLayout* rightLayout = new QVBoxLayout();
+    
+    // Header for entry display
+    QHBoxLayout* rightHeaderLayout = new QHBoxLayout();
+    
+    m_logbookEntryTitle = new QLabel("Select an entry to view");
+    m_logbookEntryTitle->setFont(QFont("Arial", 18, QFont::Bold));
+    m_logbookEntryTitle->setStyleSheet("color: #2E7D32;");
+    
+    m_logbookEntryDates = new QLabel("");
+    m_logbookEntryDates->setStyleSheet("color: palette(dark); font-size: 12px;");
+    m_logbookEntryDates->setAlignment(Qt::AlignRight);
+    
+    rightHeaderLayout->addWidget(m_logbookEntryTitle);
+    rightHeaderLayout->addStretch();
+    rightHeaderLayout->addWidget(m_logbookEntryDates);
+    
+    // Action buttons
+    QHBoxLayout* actionButtonsLayout = new QHBoxLayout();
+    
+    m_editLogbookEntryButton = new QPushButton("Edit Entry");
+    m_editLogbookEntryButton->setStyleSheet(
+        "QPushButton {"
+        "    background-color: #007bff;"
+        "    color: white;"
+        "    border: none;"
+        "    padding: 8px 16px;"
+        "    border-radius: 4px;"
+        "    font-weight: bold;"
+        "    font-size: 12px;"
+        "}"
+        "QPushButton:hover {"
+        "    background-color: #0056b3;"
+        "}"
+        "QPushButton:disabled {"
+        "    background-color: palette(mid);"
+        "    color: palette(dark);"
+        "}"
+    );
+    m_editLogbookEntryButton->setEnabled(false);
+    connect(m_editLogbookEntryButton, &QPushButton::clicked, this, &MainWindow::onEditLogbookEntryClicked);
+    
+    m_deleteLogbookEntryButton = new QPushButton("Delete Entry");
+    m_deleteLogbookEntryButton->setStyleSheet(
+        "QPushButton {"
+        "    background-color: #dc3545;"
+        "    color: white;"
+        "    border: none;"
+        "    padding: 8px 16px;"
+        "    border-radius: 4px;"
+        "    font-weight: bold;"
+        "    font-size: 12px;"
+        "}"
+        "QPushButton:hover {"
+        "    background-color: #c82333;"
+        "}"
+        "QPushButton:disabled {"
+        "    background-color: palette(mid);"
+        "    color: palette(dark);"
+        "}"
+    );
+    m_deleteLogbookEntryButton->setEnabled(false);
+    connect(m_deleteLogbookEntryButton, &QPushButton::clicked, this, &MainWindow::onDeleteLogbookEntryClicked);
+    
+    actionButtonsLayout->addStretch();
+    actionButtonsLayout->addWidget(m_editLogbookEntryButton);
+    actionButtonsLayout->addWidget(m_deleteLogbookEntryButton);
+    
+    // Content display area
+    m_logbookContentDisplay = new QTextEdit();
+    m_logbookContentDisplay->setReadOnly(true);
+    m_logbookContentDisplay->setStyleSheet(
+        "QTextEdit {"
+        "    border: 1px solid palette(mid);"
+        "    border-radius: 6px;"
+        "    background-color: palette(base);"
+        "    padding: 10px;"
+        "    font-size: 14px;"
+        "    line-height: 1.4;"
+        "}"
+    );
+    m_logbookContentDisplay->setPlaceholderText("Select an entry to view its content...");
+    
+    // Images display area
+    QLabel* imagesLabel = new QLabel("Images");
+    imagesLabel->setFont(QFont("Arial", 14, QFont::Bold));
+    imagesLabel->setStyleSheet("color: #2E7D32; margin-top: 10px;");
+    
+    m_logbookImagesArea = new QScrollArea();
+    m_logbookImagesArea->setWidgetResizable(true);
+    m_logbookImagesArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    m_logbookImagesArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_logbookImagesArea->setMaximumHeight(200);
+    m_logbookImagesArea->setStyleSheet(
+        "QScrollArea {"
+        "    border: 1px solid palette(mid);"
+        "    border-radius: 6px;"
+        "    background-color: palette(base);"
+        "}"
+    );
+    
+    m_logbookImagesContainer = new QWidget();
+    m_logbookImagesContainer->setStyleSheet("background-color: transparent;");
+    
+    m_logbookImagesLayout = new QGridLayout(m_logbookImagesContainer);
+    m_logbookImagesLayout->setSpacing(10);
+    m_logbookImagesLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    
+    m_logbookImagesArea->setWidget(m_logbookImagesContainer);
+    
+    rightLayout->addLayout(rightHeaderLayout);
+    rightLayout->addLayout(actionButtonsLayout);
+    rightLayout->addWidget(m_logbookContentDisplay, 2); // Give content display more space
+    rightLayout->addWidget(imagesLabel);
+    rightLayout->addWidget(m_logbookImagesArea, 1);
+    
+    // Add left and right layouts to main layout
+    pageLayout->addLayout(leftLayout, 1);   // Entry list takes 1/3
+    pageLayout->addLayout(rightLayout, 2);  // Entry display takes 2/3
+    
+    // Load initial data
+    updateLogbookEntryList();
+    
+    qDebug() << "setupLogbookPage completed";
 }
 
 void MainWindow::onTabButtonClicked(int id)
@@ -850,6 +1090,254 @@ PlantCard* MainWindow::createPlantCard(const PlantData& plantData, int index)
     return card;
 }
 
+// Logbook methods implementation
+void MainWindow::onAddLogbookEntryClicked()
+{
+    LogbookEntryDialog dialog(this);
+    if (dialog.exec() == QDialog::Accepted) {
+        LogbookEntry newEntry = dialog.getEntry();
+        if (m_logbookManager->addEntry(newEntry)) {
+            qDebug() << "Logbook entry added successfully";
+            updateLogbookEntryList();
+            // Select the newly added entry
+            onLogbookEntrySelected(newEntry.id);
+        } else {
+            QMessageBox::warning(this, "Error", "Failed to add logbook entry.");
+        }
+    }
+}
+
+void MainWindow::onEditLogbookEntryClicked()
+{
+    if (m_selectedLogbookEntryId.isEmpty()) {
+        return;
+    }
+    
+    LogbookEntry currentEntry = m_logbookManager->getEntry(m_selectedLogbookEntryId);
+    LogbookEntryDialog dialog(currentEntry, this);
+    
+    if (dialog.exec() == QDialog::Accepted) {
+        LogbookEntry updatedEntry = dialog.getEntry();
+        // Preserve the original ID and creation date
+        updatedEntry.id = currentEntry.id;
+        updatedEntry.dateCreated = currentEntry.dateCreated;
+        updatedEntry.dateModified = QDateTime::currentDateTime();
+        
+        if (m_logbookManager->updateEntry(m_selectedLogbookEntryId, updatedEntry)) {
+            qDebug() << "Logbook entry updated successfully";
+            updateLogbookEntryList();
+            // Refresh the display
+            onLogbookEntrySelected(m_selectedLogbookEntryId);
+        } else {
+            QMessageBox::warning(this, "Error", "Failed to update logbook entry.");
+        }
+    }
+}
+
+void MainWindow::onDeleteLogbookEntryClicked()
+{
+    if (m_selectedLogbookEntryId.isEmpty()) {
+        return;
+    }
+    
+    LogbookEntry entry = m_logbookManager->getEntry(m_selectedLogbookEntryId);
+    
+    // Create confirmation dialog
+    QDialog dialog(this);
+    dialog.setWindowTitle("Delete Entry");
+    dialog.setModal(true);
+    
+    QVBoxLayout* layout = new QVBoxLayout(&dialog);
+    
+    QLabel* label = new QLabel(QString("Are you sure you want to delete the entry '%1'?").arg(entry.title));
+    label->setWordWrap(true);
+    layout->addWidget(label);
+    
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    QPushButton* yesButton = new QPushButton("Yes");
+    QPushButton* noButton = new QPushButton("No");
+    
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(noButton);
+    buttonLayout->addWidget(yesButton);
+    layout->addLayout(buttonLayout);
+    
+    connect(yesButton, &QPushButton::clicked, &dialog, &QDialog::accept);
+    connect(noButton, &QPushButton::clicked, &dialog, &QDialog::reject);
+    
+    noButton->setDefault(true);
+    noButton->setFocus();
+    
+    if (dialog.exec() == QDialog::Accepted) {
+        if (m_logbookManager->deleteEntry(m_selectedLogbookEntryId)) {
+            qDebug() << "Logbook entry deleted successfully";
+            updateLogbookEntryList();
+            clearLogbookDisplay();
+            m_selectedLogbookEntryId.clear();
+        } else {
+            QMessageBox::warning(this, "Error", "Failed to delete logbook entry.");
+        }
+    }
+}
+
+void MainWindow::onLogbookEntrySelected(const QString& entryId)
+{
+    m_selectedLogbookEntryId = entryId;
+    displayLogbookEntry(entryId);
+    
+    // Enable action buttons
+    m_editLogbookEntryButton->setEnabled(true);
+    m_deleteLogbookEntryButton->setEnabled(true);
+}
+
+void MainWindow::updateLogbookEntryList()
+{
+    if (!m_logbookEntryList || !m_logbookManager) {
+        return;
+    }
+    
+    m_logbookEntryList->clear();
+    
+    QList<LogbookEntry> entries = m_logbookManager->getAllEntries();
+    
+    // Sort entries by creation date (newest first)
+    std::sort(entries.begin(), entries.end(), [](const LogbookEntry& a, const LogbookEntry& b) {
+        return a.dateCreated > b.dateCreated;
+    });
+    
+    for (const LogbookEntry& entry : entries) {
+        QListWidgetItem* item = new QListWidgetItem();
+        
+        // Create a custom widget for the list item
+        QWidget* itemWidget = new QWidget();
+        itemWidget->setStyleSheet("QWidget { background-color: transparent; }");
+        
+        QVBoxLayout* itemLayout = new QVBoxLayout(itemWidget);
+        itemLayout->setContentsMargins(10, 8, 10, 8);
+        itemLayout->setSpacing(2);
+        
+        // Title label
+        QLabel* titleLabel = new QLabel(entry.title.isEmpty() ? "Untitled Entry" : entry.title);
+        titleLabel->setStyleSheet("QLabel { font-weight: bold; font-size: 14px; color: palette(text); }");
+        titleLabel->setWordWrap(true);
+        
+        // Date label
+        QLabel* dateLabel = new QLabel(entry.dateCreated.toString("MMM dd, yyyy - hh:mm"));
+        dateLabel->setStyleSheet("QLabel { font-size: 11px; color: palette(dark); }");
+        
+        itemLayout->addWidget(titleLabel);
+        itemLayout->addWidget(dateLabel);
+        
+        // Set the item size and data
+        item->setSizeHint(QSize(0, 60));
+        item->setData(Qt::UserRole, entry.id);
+        
+        // Add item to list and set custom widget
+        m_logbookEntryList->addItem(item);
+        m_logbookEntryList->setItemWidget(item, itemWidget);
+    }
+    
+    qDebug() << "Updated logbook entry list with" << entries.size() << "entries";
+}
+
+void MainWindow::displayLogbookEntry(const QString& entryId)
+{
+    if (entryId.isEmpty() || !m_logbookManager) {
+        clearLogbookDisplay();
+        return;
+    }
+    
+    LogbookEntry entry = m_logbookManager->getEntry(entryId);
+    if (entry.id.isEmpty()) {
+        qDebug() << "Entry not found for ID:" << entryId;
+        clearLogbookDisplay();
+        return;
+    }
+    
+    // Update title and dates
+    m_logbookEntryTitle->setText(entry.title.isEmpty() ? "Untitled Entry" : entry.title);
+    
+    QString dateText = QString("Created: %1").arg(entry.dateCreated.toString("MMM dd, yyyy hh:mm"));
+    if (entry.dateModified != entry.dateCreated) {
+        dateText += QString("\nModified: %1").arg(entry.dateModified.toString("MMM dd, yyyy hh:mm"));
+    }
+    m_logbookEntryDates->setText(dateText);
+    
+    // Update content
+    m_logbookContentDisplay->setPlainText(entry.content);
+    
+    // Clear and update images
+    clearLogbookImagesDisplay();
+    
+    int imageIndex = 0;
+    const int imagesPerRow = 3;
+    
+    for (const QString& imagePath : entry.imagePaths) {
+        if (QFile::exists(imagePath)) {
+            QLabel* imageLabel = new QLabel();
+            imageLabel->setStyleSheet("border: 1px solid palette(mid); border-radius: 4px;");
+            imageLabel->setAlignment(Qt::AlignCenter);
+            imageLabel->setFixedSize(120, 90);
+            imageLabel->setScaledContents(true);
+            
+            QPixmap pixmap(imagePath);
+            if (!pixmap.isNull()) {
+                imageLabel->setPixmap(pixmap);
+            } else {
+                imageLabel->setText("Image\nNot Found");
+                imageLabel->setStyleSheet("border: 1px solid red; color: red; text-align: center;");
+            }
+            
+            int row = imageIndex / imagesPerRow;
+            int col = imageIndex % imagesPerRow;
+            
+            m_logbookImagesLayout->addWidget(imageLabel, row, col);
+            imageIndex++;
+        }
+    }
+    
+    qDebug() << "Displayed logbook entry:" << entry.title;
+}
+
+void MainWindow::clearLogbookDisplay()
+{
+    if (m_logbookEntryTitle) {
+        m_logbookEntryTitle->setText("Select an entry to view");
+    }
+    if (m_logbookEntryDates) {
+        m_logbookEntryDates->setText("");
+    }
+    if (m_logbookContentDisplay) {
+        m_logbookContentDisplay->clear();
+        m_logbookContentDisplay->setPlaceholderText("Select an entry to view its content...");
+    }
+    
+    clearLogbookImagesDisplay();
+    
+    // Disable action buttons
+    if (m_editLogbookEntryButton) {
+        m_editLogbookEntryButton->setEnabled(false);
+    }
+    if (m_deleteLogbookEntryButton) {
+        m_deleteLogbookEntryButton->setEnabled(false);
+    }
+}
+
+void MainWindow::clearLogbookImagesDisplay()
+{
+    if (!m_logbookImagesLayout) {
+        return;
+    }
+    
+    // Clear all widgets from the images layout
+    while (QLayoutItem* item = m_logbookImagesLayout->takeAt(0)) {
+        if (QWidget* widget = item->widget()) {
+            widget->deleteLater();
+        }
+        delete item;
+    }
+}
+
 void MainWindow::resizeEvent(QResizeEvent* event)
 {
     QMainWindow::resizeEvent(event);
@@ -1043,6 +1531,11 @@ void MainWindow::onLogoutClicked()
         m_plantManager->savePlantsToFile();
     }
     
+    // Save logbook data
+    if (m_logbookManager) {
+        m_logbookManager->saveToFile();
+    }
+    
     // Clear plant cards and grid
     clearPlantGrid();
     
@@ -1054,6 +1547,10 @@ void MainWindow::onLogoutClicked()
     
     // Clear plant UI components - they will be recreated on next login
     m_plantCards.clear();
+    
+    // Clear logbook UI components
+    clearLogbookDisplay();
+    m_selectedLogbookEntryId.clear();
     
     // Clear notifications
     m_notifications.clear();
@@ -1070,6 +1567,12 @@ void MainWindow::onLogoutClicked()
     QWidget* myPlantsPage = ui->stackedWidget->widget(0);
     if (myPlantsPage && myPlantsPage->layout()) {
         delete myPlantsPage->layout();
+    }
+    
+    // Clear logbook page layout
+    QWidget* logbookPage = ui->stackedWidget->widget(1);
+    if (logbookPage && logbookPage->layout()) {
+        delete logbookPage->layout();
     }
     
     // Clear the central widget layout to ensure clean state for next login

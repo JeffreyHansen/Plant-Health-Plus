@@ -33,6 +33,10 @@ set(PROJECT_SOURCES
         logindialog.h
         usermanager.cpp
         usermanager.h
+        logbookmanager.cpp
+        logbookmanager.h
+        logbookentrydialog.cpp
+        logbookentrydialog.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
