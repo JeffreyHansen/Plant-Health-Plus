@@ -71,6 +71,12 @@ MainWindow::MainWindow(QWidget *parent)
     // Initialize logbook manager
     m_logbookManager = new LogbookManager();
     
+    // Initialize resize timer early to prevent segfaults
+    m_resizeTimer = new QTimer(this);
+    m_resizeTimer->setSingleShot(true);
+    m_resizeTimer->setInterval(100); // 100ms delay
+    connect(m_resizeTimer, &QTimer::timeout, this, &MainWindow::onResizeTimeout);
+    
     // Set window properties
     setWindowTitle("Plant Health Plus");
     
@@ -518,12 +524,6 @@ void MainWindow::showMainInterface()
     // Connect to theme changes
     connect(QApplication::styleHints(), &QStyleHints::colorSchemeChanged,
             this, &MainWindow::onThemeChanged);
-    
-    // Setup resize timer
-    m_resizeTimer = new QTimer(this);
-    m_resizeTimer->setSingleShot(true);
-    m_resizeTimer->setInterval(100); // 100ms delay
-    connect(m_resizeTimer, &QTimer::timeout, this, &MainWindow::onResizeTimeout);
 }
 
 void MainWindow::setupMyPlantsPage()
