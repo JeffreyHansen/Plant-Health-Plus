@@ -9,6 +9,7 @@
 #include <QStandardPaths>
 #include <QDir>
 #include "plantcard.h"
+#include "usermanager.h"
 
 class PlantManager : public QObject
 {
@@ -17,6 +18,10 @@ class PlantManager : public QObject
 public:
     explicit PlantManager(QObject *parent = nullptr);
     ~PlantManager();
+
+    // User management
+    void setCurrentUser(const QString& username);
+    QString getCurrentUser() const { return m_currentUser; }
 
     // Plant management
     void addPlant(const PlantData& plantData);
@@ -47,6 +52,8 @@ private:
     PlantData plantDataFromJson(const QJsonObject& json) const;
 
     QVector<PlantData> m_plants;
+    QString m_currentUser;
+    UserManager m_userManager;
     QString m_dataFilePath;
 };
 
