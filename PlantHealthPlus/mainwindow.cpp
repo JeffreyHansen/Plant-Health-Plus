@@ -402,7 +402,14 @@ void MainWindow::showMainInterface()
     
     int minWidthForPlants = (2 * cardWidth) + (3 * spacing) + scrollMargins; // 2 cards + spacings + margins = 645px
     int totalMinWidth = minWidthForPlants + leftSidebar + rightSidebar; // 645 + 131 + 81 = 857px
-    int minHeight = PlantCard::CARD_EXPANDED_HEIGHT + 100; // Expanded card height + buffer = 480px
+    
+    // Calculate minimum height to ensure tab buttons and bottom buttons are visible
+    // Tab buttons: 3 buttons at ~50px each = 150px
+    // Spacer and bottom buttons: settings + notification buttons = 80px (40px each)
+    // Additional margin/spacing = 30px (reduced to allow more contraction)
+    // Total sidebar minimum = 260px
+    int minSidebarHeight = 260; // Minimum height for tab sidebar
+    int minHeight = qMax(PlantCard::CARD_EXPANDED_HEIGHT + 100, minSidebarHeight); // Use the larger of the two
     
     setMinimumSize(totalMinWidth, minHeight);
     qDebug() << "Set minimum window size to:" << totalMinWidth << "x" << minHeight;
@@ -497,7 +504,8 @@ void MainWindow::showMainInterface()
     connect(ui->logbook_tab, &QPushButton::clicked, [this]() { ui->stackedWidget->setCurrentIndex(1); });
     connect(ui->plantpedia_tab, &QPushButton::clicked, [this]() { ui->stackedWidget->setCurrentIndex(2); });
     
-    // Connect settings button
+    // Connect settings button (disconnect first to prevent duplicates)
+    disconnect(ui->settings_button, &QPushButton::clicked, this, &MainWindow::onSettingsClicked);
     connect(ui->settings_button, &QPushButton::clicked, this, &MainWindow::onSettingsClicked);
     
     // Setup notification system
@@ -622,10 +630,43 @@ void MainWindow::setupLogbookPage()
         return;
     }
     
+    // Check if logbook is already set up to prevent duplicates
+    if (m_logbookEntryList != nullptr) {
+        qDebug() << "Logbook page already set up, skipping...";
+        return;
+    }
+    
     qDebug() << "Logbook page widget found, clearing existing layout";
     
-    // Clear existing layout if any
-    delete logbookPage->layout();
+    // Clear existing layout if any and ensure all child widgets are properly cleaned up
+    QLayout* existingLayout = logbookPage->layout();
+    if (existingLayout) {
+        // Clear all widgets from the layout first
+        QLayoutItem* item;
+        while ((item = existingLayout->takeAt(0)) != nullptr) {
+            if (QWidget* widget = item->widget()) {
+                widget->setParent(nullptr);
+                widget->deleteLater();
+            }
+            if (QLayout* childLayout = item->layout()) {
+                delete childLayout;
+            }
+            delete item;
+        }
+        delete existingLayout;
+    }
+    
+    // Reset all logbook UI pointers to ensure clean state
+    m_logbookEntryList = nullptr;
+    m_logbookContentDisplay = nullptr;
+    m_logbookImagesArea = nullptr;
+    m_logbookImagesContainer = nullptr;
+    m_logbookImagesLayout = nullptr;
+    m_addLogbookEntryButton = nullptr;
+    m_editLogbookEntryButton = nullptr;
+    m_deleteLogbookEntryButton = nullptr;
+    m_logbookEntryTitle = nullptr;
+    m_logbookEntryDates = nullptr;
     
     // Create main layout for the page
     QHBoxLayout* pageLayout = new QHBoxLayout(logbookPage);
@@ -802,6 +843,9 @@ void MainWindow::setupLogbookPage()
         "    background-color: palette(base);"
         "}"
     );
+    
+    // Install event filter to handle scroll area resize events
+    m_logbookImagesArea->installEventFilter(this);
     
     m_logbookImagesContainer = new QWidget();
     m_logbookImagesContainer->setStyleSheet("background-color: transparent;");
@@ -1093,7 +1137,7 @@ PlantCard* MainWindow::createPlantCard(const PlantData& plantData, int index)
 // Logbook methods implementation
 void MainWindow::onAddLogbookEntryClicked()
 {
-    LogbookEntryDialog dialog(this);
+    LogbookEntryDialog dialog(m_logbookManager, this);
     if (dialog.exec() == QDialog::Accepted) {
         LogbookEntry newEntry = dialog.getEntry();
         if (m_logbookManager->addEntry(newEntry)) {
@@ -1114,7 +1158,7 @@ void MainWindow::onEditLogbookEntryClicked()
     }
     
     LogbookEntry currentEntry = m_logbookManager->getEntry(m_selectedLogbookEntryId);
-    LogbookEntryDialog dialog(currentEntry, this);
+    LogbookEntryDialog dialog(currentEntry, m_logbookManager, this);
     
     if (dialog.exec() == QDialog::Accepted) {
         LogbookEntry updatedEntry = dialog.getEntry();
@@ -1347,6 +1391,53 @@ void MainWindow::resizeEvent(QResizeEvent* event)
         m_loginPage->setGeometry(0, 0, width(), height());
     }
     
+    // DEBUG: Track layout elements during resize
+    if (ui->settings_button && ui->notification_button) {
+        QSpacerItem* verticalSpacer = nullptr;
+        
+        // Find the spacer by searching through the Tab layout
+        if (ui->Tab) {
+            QVBoxLayout* tabLayout = qobject_cast<QVBoxLayout*>(ui->Tab->layout());
+            if (tabLayout) {
+                for (int i = 0; i < tabLayout->count(); ++i) {
+                    QLayoutItem* item = tabLayout->itemAt(i);
+                    if (item && item->spacerItem()) {
+                        verticalSpacer = item->spacerItem();
+                        break;
+                    }
+                }
+            }
+        }
+        
+        qDebug() << "=== RESIZE EVENT DEBUG ===";
+        qDebug() << "Window size:" << event->size().width() << "x" << event->size().height();
+        qDebug() << "Settings button position:" << ui->settings_button->pos() << "size:" << ui->settings_button->size();
+        qDebug() << "Settings button geometry:" << ui->settings_button->geometry();
+        qDebug() << "Notification button position:" << ui->notification_button->pos() << "size:" << ui->notification_button->size();
+        qDebug() << "Notification button geometry:" << ui->notification_button->geometry();
+        
+        if (verticalSpacer) {
+            qDebug() << "Vertical spacer size hint:" << verticalSpacer->sizeHint();
+            qDebug() << "Vertical spacer minimum size:" << verticalSpacer->minimumSize();
+            qDebug() << "Vertical spacer maximum size:" << verticalSpacer->maximumSize();
+            qDebug() << "Vertical spacer geometry:" << verticalSpacer->geometry();
+        } else {
+            qDebug() << "Vertical spacer not found!";
+        }
+        
+        // Check Tab frame geometry
+        if (ui->Tab) {
+            qDebug() << "Tab frame geometry:" << ui->Tab->geometry();
+        }
+        
+        // Check if settings button is cut off
+        int settingsBottom = ui->settings_button->pos().y() + ui->settings_button->height();
+        int windowHeight = height();
+        bool isCutOff = settingsBottom > windowHeight;
+        qDebug() << "Settings bottom Y:" << settingsBottom << "Window height:" << windowHeight << "Cut off:" << isCutOff;
+        qDebug() << "=========================";
+    }
+    
     // Start/restart the resize timer to avoid too frequent updates
     if (m_resizeTimer) {
         m_resizeTimer->start();
@@ -1390,6 +1481,13 @@ void MainWindow::onResizeTimeout()
             m_plantsScrollArea->updateGeometry();
         }
         updatePlantGrid();
+    }
+    
+    // Update logbook scroll areas when window resize is complete
+    if (m_logbookEntryList) {
+        if (m_logbookImagesArea) {
+            m_logbookImagesArea->updateGeometry();
+        }
     }
 }
 
@@ -1508,15 +1606,22 @@ void MainWindow::updateAllPlantCardsEnvironmentalData()
 
 bool MainWindow::eventFilter(QObject* object, QEvent* event)
 {
-    // Handle scroll area resize events
-    if (object == m_plantsScrollArea && event->type() == QEvent::Resize) {
-        // Start the resize timer when scroll area is resized
-        if (m_resizeTimer) {
-            m_resizeTimer->start();
+    // Handle scroll area resize events for both plants and logbook
+    if (event->type() == QEvent::Resize) {
+        if (object == m_plantsScrollArea || object == m_logbookImagesArea) {
+            // Start the resize timer when any monitored scroll area is resized
+            if (m_resizeTimer) {
+                m_resizeTimer->start();
+            }
         }
     }
     
     return QMainWindow::eventFilter(object, event);
+}
+
+void MainWindow::adjustTabLayout()
+{
+    // No longer needed - spacer behavior is controlled through UI configuration
 }
 
 void MainWindow::onSettingsClicked()
@@ -1551,6 +1656,18 @@ void MainWindow::onLogoutClicked()
     // Clear logbook UI components
     clearLogbookDisplay();
     m_selectedLogbookEntryId.clear();
+    
+    // Reset logbook UI pointers to prevent stale references
+    m_logbookEntryList = nullptr;
+    m_logbookContentDisplay = nullptr;
+    m_logbookImagesArea = nullptr;
+    m_logbookImagesContainer = nullptr;
+    m_logbookImagesLayout = nullptr;
+    m_addLogbookEntryButton = nullptr;
+    m_editLogbookEntryButton = nullptr;
+    m_deleteLogbookEntryButton = nullptr;
+    m_logbookEntryTitle = nullptr;
+    m_logbookEntryDates = nullptr;
     
     // Clear notifications
     m_notifications.clear();
@@ -1812,26 +1929,20 @@ void MainWindow::showNotificationsDialog()
     titleLabel->setStyleSheet("QLabel { font-size: 18px; font-weight: bold; }");
     layout->addWidget(titleLabel);
     
-    if (m_notifications.isEmpty()) {
-        QLabel* emptyLabel = new QLabel("No notifications", notificationDialog);
-        emptyLabel->setStyleSheet("QLabel { font-size: 14px; }");
-        emptyLabel->setAlignment(Qt::AlignCenter);
-        layout->addWidget(emptyLabel);
-    } else {
-        // Create tab widget for unread/read sections
-        QTabWidget* tabWidget = new QTabWidget(notificationDialog);
-        
-        // Separate notifications into unread and read
-        QList<NotificationItem> unreadNotifications;
-        QList<NotificationItem> readNotifications;
-        
-        for (const auto& notification : m_notifications) {
-            if (notification.isRead) {
-                readNotifications.append(notification);
-            } else {
-                unreadNotifications.append(notification);
-            }
+    // Always create tab widget for unread/read sections
+    QTabWidget* tabWidget = new QTabWidget(notificationDialog);
+    
+    // Separate notifications into unread and read
+    QList<NotificationItem> unreadNotifications;
+    QList<NotificationItem> readNotifications;
+    
+    for (const auto& notification : m_notifications) {
+        if (notification.isRead) {
+            readNotifications.append(notification);
+        } else {
+            unreadNotifications.append(notification);
         }
+    }
         
         // Create unread tab
         QWidget* unreadWidget = new QWidget();
@@ -1945,7 +2056,6 @@ void MainWindow::showNotificationsDialog()
         tabWidget->addTab(readWidget, QString("Read (%1)").arg(readNotifications.size()));
         
         layout->addWidget(tabWidget);
-    }
     
     // Buttons layout
     QHBoxLayout* buttonLayout = new QHBoxLayout();

@@ -79,6 +79,9 @@ bool LogbookManager::updateEntry(const QString& entryId, const LogbookEntry& ent
 {
     for (int i = 0; i < m_entries.size(); ++i) {
         if (m_entries[i].id == entryId) {
+            // Clean up orphaned images before updating
+            cleanupOrphanedImages(entryId, m_entries[i].imagePaths, entry.imagePaths);
+            
             LogbookEntry updatedEntry = entry;
             updatedEntry.id = entryId; // Preserve original ID
             updatedEntry.dateModified = QDateTime::currentDateTime();
@@ -312,4 +315,22 @@ QString LogbookManager::generateImageFileName(const QString& entryId, const QStr
            .arg(timestamp)
            .arg(fileInfo.baseName())
            .arg(fileInfo.completeSuffix());
+}
+
+void LogbookManager::cleanupOrphanedImages(const QString& entryId, const QStringList& oldImagePaths, const QStringList& newImagePaths)
+{
+    // Find images that were in the old list but not in the new list
+    for (const QString& oldImagePath : oldImagePaths) {
+        if (!newImagePaths.contains(oldImagePath)) {
+            // This image was removed from the entry
+            // Only delete it if it's in our managed images directory (to avoid deleting user originals)
+            QString userImagesPath = getUserImagesPath();
+            if (oldImagePath.startsWith(userImagesPath)) {
+                qDebug() << "Cleaning up orphaned image:" << oldImagePath;
+                deleteImage(oldImagePath);
+            } else {
+                qDebug() << "Skipping cleanup of non-managed image:" << oldImagePath;
+            }
+        }
+    }
 }

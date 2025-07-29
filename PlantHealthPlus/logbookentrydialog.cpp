@@ -1,7 +1,7 @@
 #include "logbookentrydialog.h"
 
-LogbookEntryDialog::LogbookEntryDialog(QWidget *parent)
-    : QDialog(parent), m_isEditing(false)
+LogbookEntryDialog::LogbookEntryDialog(LogbookManager* manager, QWidget *parent)
+    : QDialog(parent), m_isEditing(false), m_logbookManager(manager)
 {
     setupUI();
     setWindowTitle("New Logbook Entry");
@@ -12,8 +12,8 @@ LogbookEntryDialog::LogbookEntryDialog(QWidget *parent)
     m_dateModifiedLabel->setText(QString("Modified: %1").arg(now.toString("MMM dd, yyyy hh:mm")));
 }
 
-LogbookEntryDialog::LogbookEntryDialog(const LogbookEntry& entry, QWidget *parent)
-    : QDialog(parent), m_originalEntry(entry), m_isEditing(true)
+LogbookEntryDialog::LogbookEntryDialog(const LogbookEntry& entry, LogbookManager* manager, QWidget *parent)
+    : QDialog(parent), m_originalEntry(entry), m_isEditing(true), m_logbookManager(manager)
 {
     setupUI();
     setEntry(entry);
@@ -208,7 +208,21 @@ void LogbookEntryDialog::onAddImageClicked()
     
     for (const QString& filePath : filePaths) {
         if (isValidImageFile(filePath) && !m_imagePaths.contains(filePath)) {
-            m_imagePaths.append(filePath);
+            // Generate a temporary entry ID for new entries, or use the existing ID for edits
+            QString entryId = m_isEditing ? m_originalEntry.id : QString("temp_%1").arg(QDateTime::currentMSecsSinceEpoch());
+            
+            // Copy the image to the app's data directory to prevent accidental deletion of originals
+            if (m_logbookManager) {
+                QString copiedImagePath = m_logbookManager->saveImage(filePath, entryId);
+                if (!copiedImagePath.isEmpty()) {
+                    m_imagePaths.append(copiedImagePath);
+                } else {
+                    qDebug() << "Failed to copy image:" << filePath;
+                }
+            } else {
+                // Fallback: store original path if manager is not available
+                m_imagePaths.append(filePath);
+            }
         }
     }
     

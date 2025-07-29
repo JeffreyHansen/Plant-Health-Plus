@@ -25,8 +25,8 @@ class LogbookEntryDialog : public QDialog
     Q_OBJECT
 
 public:
-    explicit LogbookEntryDialog(QWidget *parent = nullptr);
-    explicit LogbookEntryDialog(const LogbookEntry& entry, QWidget *parent = nullptr);
+    explicit LogbookEntryDialog(LogbookManager* manager, QWidget *parent = nullptr);
+    explicit LogbookEntryDialog(const LogbookEntry& entry, LogbookManager* manager, QWidget *parent = nullptr);
     
     LogbookEntry getEntry() const;
     void setEntry(const LogbookEntry& entry);
@@ -56,6 +56,7 @@ private:
     QStringList m_imagePaths;
     LogbookEntry m_originalEntry;
     bool m_isEditing;
+    LogbookManager* m_logbookManager;
     
     static const int IMAGE_THUMBNAIL_SIZE = 150;
     static const int IMAGES_PER_ROW = 4;

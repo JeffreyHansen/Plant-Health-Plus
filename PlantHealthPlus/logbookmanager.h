@@ -58,6 +58,7 @@ public:
     // Image management
     QString saveImage(const QString& sourceImagePath, const QString& entryId);
     bool deleteImage(const QString& imagePath);
+    void cleanupOrphanedImages(const QString& entryId, const QStringList& oldImagePaths, const QStringList& newImagePaths);
     QString getUserImagesPath() const;
     
 private:

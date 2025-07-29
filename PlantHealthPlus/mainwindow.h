@@ -120,6 +120,7 @@ private:
     void displayLogbookEntry(const QString& entryId);
     void clearLogbookDisplay();
     void clearLogbookImagesDisplay();
+    void adjustTabLayout();
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
