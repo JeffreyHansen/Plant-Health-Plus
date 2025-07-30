@@ -17,6 +17,9 @@
 #include <QStyleHints>
 #include <QDebug>
 #include <QMap>
+#include <QPropertyAnimation>
+#include <QGraphicsOpacityEffect>
+#include "addplantdialog.h"
 #include "scraper.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -29,6 +32,9 @@ MainWindow::MainWindow(QWidget *parent)
     , m_addPlantButton(nullptr)
 {
     ui->setupUi(this);
+
+    // Setup layout for condition buttons
+    setupConditionLayout();
     
     // Set minimum window size to ensure at least 2 plants per row
     // Calculation: 2 cards (280px each) + 3 spacings (15px each) + scroll margins (40px) + sidebars (131px + 81px)
@@ -232,10 +238,182 @@ void MainWindow::setupMyPlantsPage()
     updatePlantGrid();
 }
 
+void MainWindow::setupConditionLayout()
+{
+    if(!ui->Conditions->layout()) {
+        ui->Conditions->setLayout(new QVBoxLayout);
+    }
+
+    QVBoxLayout* layout = qobject_cast<QVBoxLayout*>(ui->Conditions->layout());
+    layout->setContentsMargins(1, 10, 1, 1);
+    layout->setSpacing(10);
+
+    auto makeShadowEffect = []() {
+        QGraphicsDropShadowEffect* m_buttonEffect = new QGraphicsDropShadowEffect;
+        m_buttonEffect->setBlurRadius(10);
+        m_buttonEffect->setOffset(2, 2);
+        m_buttonEffect->setColor(QColor(0, 0, 0, 100));
+        return m_buttonEffect;
+    };
+
+    auto createConditionButton = [this]() -> QPushButton* {
+        QPushButton* btn = new QPushButton(this);
+        btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        btn->setFixedHeight(100);
+        btn->setStyleSheet(
+            "QPushButton {"
+            "    background-color: rgba(102, 248, 135, 0.2);"
+            "    color: #4CAF50;"
+            "    border: 2px solid #4CAF50;"
+            "    padding: 6px 12px;"
+            "    border-radius: 15px;"
+            "    font-weight: bold;"
+            "    max-width: 60px;"
+            "}"
+            "QPushButton:hover {"
+            "    background-color: rgba(102, 248, 135, 0.4);"
+            "}"
+            "QPushButton:pressed {"
+            "    background-color: rgba(102, 248, 135, 0.6);"
+            "}"
+            );
+        return btn;
+    };
+
+    QPushButton* m_tempButton = createConditionButton();
+    m_tempButton->setObjectName("temp");
+    m_tempButton->setIcon(QIcon(":/images/images/thermometer_temp.png"));
+    m_tempButton->setIconSize(QSize(60, 60));
+    m_tempButton->setGraphicsEffect(makeShadowEffect());
+    QPushButton* m_uvButton = createConditionButton();
+    m_uvButton->setObjectName("uv");
+    m_uvButton->setIcon(QIcon(":/images/images/uv.png"));
+    m_uvButton->setIconSize(QSize(60, 60));
+    m_uvButton->setGraphicsEffect(makeShadowEffect());
+    QPushButton* m_humidityButton = createConditionButton();
+    m_humidityButton->setObjectName("humidity");
+    m_humidityButton->setIcon(QIcon(":/images/images/humidity.png"));
+    m_humidityButton->setIconSize(QSize(80, 80));
+    m_humidityButton->setGraphicsEffect(makeShadowEffect());
+
+    connect(m_tempButton, &QPushButton::clicked, this, &MainWindow::onConditionClicked);
+    connect(m_uvButton, &QPushButton::clicked, this, &MainWindow::onConditionClicked);
+    connect(m_humidityButton, &QPushButton::clicked, this, &MainWindow::onConditionClicked);
+
+    QLabel* humidityLabel = new QLabel("Humidity");
+    humidityLabel->setFont(QFont("Calbiri", 12, QFont::Bold));
+    humidityLabel->setStyleSheet("color: rgba(47, 148, 41, 0.9);");
+
+    QLabel* tempLabel = new QLabel("Temp");
+    tempLabel->setFont(QFont("Calbiri", 12, QFont::Bold));
+    tempLabel->setStyleSheet("color: rgba(47, 148, 41, 0.9);");
+
+    QLabel* uvLabel = new QLabel("UV");
+    uvLabel->setFont(QFont("Calbiri", 12, QFont::Bold));
+    uvLabel->setStyleSheet("color: rgba(47, 148, 41, 0.9);");
+
+    layout->addWidget(tempLabel, 0, Qt::AlignLeft);
+    layout->addWidget(m_tempButton);
+    layout->addWidget(uvLabel, 0, Qt::AlignLeft);
+    layout->addWidget(m_uvButton);
+    layout->addWidget(humidityLabel, 0, Qt::AlignLeft);
+    layout->addWidget(m_humidityButton);
+
+    // Add a stretch at the bottom to push buttons to top
+    layout->addStretch();
+}
+
 void MainWindow::onTabButtonClicked(int id)
 {
     // This slot receives the button ID and changes the page
     ui->stackedWidget->setCurrentIndex(id);
+}
+
+void MainWindow::onConditionClicked() {
+    static QMap<ConditionType, QWidget*> openCharts;
+
+    QPushButton* clickedButton = qobject_cast<QPushButton*>(sender());
+    if (!clickedButton) return;
+
+    QString name = clickedButton->objectName();
+    ConditionType type;
+
+    if (name == "temp") {
+        type = ConditionType::Temperature;
+    } else if (name == "uv") {
+        type = ConditionType::UV;
+    } else if (name == "humidity") {
+        type = ConditionType::Humidity;
+    } else {
+        qDebug() <<"Unknown condition, returning ungracefully.";
+        return;
+    }
+
+    if (openCharts.contains(type)) {
+        QWidget *existing = openCharts[type];
+        if (existing && existing->isVisible()) {
+            existing->raise();
+            existing->activateWindow();
+            return;
+        } else {
+            openCharts.remove(type); // clean stale pointer
+        }
+    }
+
+    QWidget *chartWindow = new QWidget();
+    chartWindow->resize(600, 400);
+    chartWindow->setAttribute(Qt::WA_DeleteOnClose);
+
+    // Create chart based on the type declared.
+    ConditionChart *chartWidget = new ConditionChart(type, chartWindow);
+    ForecastClient *client = new ForecastClient(chartWindow);
+
+    connect(client, &ForecastClient::forecastsReady,
+            chartWidget, &ConditionChart::updateChart);
+
+    client->getURL();
+
+    // Provide layout.
+    QVBoxLayout *layout = new QVBoxLayout(chartWindow);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(chartWidget);
+    chartWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    chartWindow->setLayout(layout);
+
+    openCharts[type] = chartWindow;
+
+    connect(chartWindow, &QWidget::destroyed, [type]() {
+        openCharts.remove(type);
+    });
+
+    QString title;
+    switch(type) {
+        case ConditionType::Temperature:
+            title = "Temperature Chart";
+            break;
+        case ConditionType::UV:
+            title = "UV Index Chart";
+            break;
+        case ConditionType::Humidity:
+            title = "Humidity Index Chart";
+            break;
+        default:
+            break;
+    }
+
+    chartWindow->setWindowTitle(title);
+    chartWindow->show();
+    chartWindow->raise();
+    chartWindow->activateWindow();
+
+    // Then, raise all other open charts (except this one)
+    for (auto i = openCharts.begin(); i != openCharts.end(); ++i) {
+        QWidget* w = i.value();
+        if (w && w->isVisible()) {
+            w->raise();
+            w->activateWindow();
+        }
+    }
 }
 
 void MainWindow::onAddPlantClicked()
@@ -373,7 +551,7 @@ void MainWindow::updatePlantGrid()
         QString area = plantData.houseArea.isEmpty() ? "Unassigned" : plantData.houseArea;
         plantsByArea[area].append(qMakePair(plantData, i));
     }
-    
+
     // Calculate responsive columns based on available width
     int availableWidth = m_plantsScrollArea->viewport()->width();
     int cardWidth = PlantCard::CARD_WIDTH;
@@ -660,7 +838,7 @@ bool MainWindow::eventFilter(QObject* object, QEvent* event)
             m_resizeTimer->start();
         }
     }
-    
+
     return QMainWindow::eventFilter(object, event);
 }
 

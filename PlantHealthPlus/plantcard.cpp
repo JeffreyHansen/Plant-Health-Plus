@@ -443,27 +443,27 @@ void PlantCard::markWatered()
 {
     // Show confirmation dialog
     QMessageBox::StandardButton reply = QMessageBox::question(
-        this, 
-        "Confirm Watering", 
+        nullptr,
+        "Confirm Watering",
         QString("Mark '%1' as watered today?").arg(m_plantData.name),
         QMessageBox::Yes | QMessageBox::No,
         QMessageBox::Yes
-    );
-    
+        );
+
     if (reply == QMessageBox::Yes) {
         QDateTime oldWatered = m_plantData.lastWatered;
         m_plantData.lastWatered = QDateTime::currentDateTime();
-        
-        qDebug() << "Plant watered - Old date:" << oldWatered.toString() 
+
+        qDebug() << "Plant watered - Old date:" << oldWatered.toString()
                  << "New date:" << m_plantData.lastWatered.toString();
-        
+
         updateWateringStatus();
-        
+
         // Update the last watered label in expanded view if it exists
         if (m_lastWateredLabel) {
             m_lastWateredLabel->setText(QString("Last Watered: %1").arg(m_plantData.lastWatered.toString("MMM dd, yyyy hh:mm AP")));
         }
-        
+
         emit wateringUpdated();
     }
 }
@@ -622,3 +622,4 @@ void PlantCard::updateEnvironmentalData(double temp, double humidity, double uv)
         }
     }
 }
+

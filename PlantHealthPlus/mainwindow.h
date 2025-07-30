@@ -15,7 +15,7 @@
 #include <QEvent>
 #include "plantcard.h"
 #include "plantmanager.h"
-#include "addplantdialog.h"
+#include "conditionchart.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -43,9 +43,11 @@ private slots:
     void refreshPlantGrid();
     void onThemeChanged(Qt::ColorScheme colorScheme);
     void onResizeTimeout();
+    void onConditionClicked();
 
 private:
     void setupMyPlantsPage();
+    void setupConditionLayout();
     void updatePlantGrid();
     void clearPlantGrid();
     PlantCard* createPlantCard(const PlantData& plantData, int index);
@@ -53,6 +55,9 @@ private:
     void setupResponsiveLayout();
     void setupPlantUILayout();
     void updateAllPlantCardsEnvironmentalData();
+    QPushButton* m_tempButton;
+    QPushButton* m_uvButton;
+    QPushButton* m_humidityButton;
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
@@ -62,6 +67,8 @@ protected:
     Ui::MainWindow *ui;
     QButtonGroup *buttonGroup;
     QStackedWidget *stackedWidget;
+
+    ConditionChart *conditionChart;
     
     // Plant management
     PlantManager* m_plantManager;
