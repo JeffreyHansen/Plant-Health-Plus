@@ -10,17 +10,35 @@
 PlantManager::PlantManager(QObject *parent)
     : QObject(parent)
 {
-    m_dataFilePath = getDataFilePath();
-    
-    // Try to load existing data, if it fails create sample plants
-    if (!loadPlantsFromFile()) {
-        createSamplePlants();
-    }
+    // Don't load data until user is set
 }
 
 PlantManager::~PlantManager()
 {
     savePlantsToFile();
+}
+
+void PlantManager::setCurrentUser(const QString& username)
+{
+    // Save current user's data if there is one
+    if (!m_currentUser.isEmpty()) {
+        savePlantsToFile();
+    }
+    
+    // Clear current plants
+    m_plants.clear();
+    
+    // Set new user
+    m_currentUser = username;
+    m_userManager.setCurrentUser(username);
+    
+    // Load new user's data
+    if (!loadPlantsFromFile()) {
+        // If no data exists for this user, start with empty list
+        m_plants.clear();
+    }
+    
+    emit dataChanged();
 }
 
 void PlantManager::addPlant(const PlantData& plantData)
@@ -61,16 +79,30 @@ PlantData PlantManager::getPlant(int index) const
 
 QString PlantManager::getDataFilePath() const
 {
-    QString dataDir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    QDir dir(dataDir);
-    if (!dir.exists()) {
-        dir.mkpath(dataDir);
+    if (m_currentUser.isEmpty()) {
+        return QString(); // No user set
     }
-    return dir.filePath("plants.json");
+    return m_userManager.getUserPlantsFilePath(m_currentUser);
 }
 
 bool PlantManager::savePlantsToFile()
 {
+    QString filePath = getDataFilePath();
+    if (filePath.isEmpty()) {
+        qDebug() << "Cannot save plants: no user set or invalid file path";
+        return false;
+    }
+    
+    // Ensure the directory exists
+    QFileInfo fileInfo(filePath);
+    QDir dir = fileInfo.absoluteDir();
+    if (!dir.exists()) {
+        if (!dir.mkpath(".")) {
+            qDebug() << "Failed to create directory for plants data:" << dir.path();
+            return false;
+        }
+    }
+    
     QJsonArray plantsArray;
     
     for (const PlantData& plant : m_plants) {
@@ -83,25 +115,42 @@ bool PlantManager::savePlantsToFile()
     
     QJsonDocument doc(rootObject);
     
-    QFile file(m_dataFilePath);
+    QFile file(filePath);
     if (!file.open(QIODevice::WriteOnly)) {
-        qDebug() << "Failed to open plants data file for writing:" << m_dataFilePath;
+        qDebug() << "Failed to open plants data file for writing:" << filePath;
         return false;
     }
     
-    file.write(doc.toJson());
-    return true;
+    qint64 bytesWritten = file.write(doc.toJson());
+    bool success = (bytesWritten != -1);
+    file.close();
+    
+    if (success) {
+        qDebug() << "Successfully saved" << m_plants.size() << "plants for user" << m_currentUser << "to" << filePath;
+    } else {
+        qDebug() << "Failed to write plants data to file:" << filePath;
+    }
+    
+    return success;
 }
 
 bool PlantManager::loadPlantsFromFile()
 {
-    QFile file(m_dataFilePath);
+    QString filePath = getDataFilePath();
+    if (filePath.isEmpty()) {
+        qDebug() << "Cannot load plants: no user set or invalid file path";
+        return false;
+    }
+    
+    QFile file(filePath);
     if (!file.exists() || !file.open(QIODevice::ReadOnly)) {
-        qDebug() << "Plants data file not found:" << m_dataFilePath;
+        qDebug() << "Plants data file not found:" << filePath;
         return false;
     }
     
     QByteArray data = file.readAll();
+    file.close();
+    
     QJsonParseError error;
     QJsonDocument doc = QJsonDocument::fromJson(data, &error);
     
@@ -121,6 +170,7 @@ bool PlantManager::loadPlantsFromFile()
         }
     }
     
+    qDebug() << "Successfully loaded" << m_plants.size() << "plants for user" << m_currentUser << "from" << filePath;
     emit dataChanged();
     return true;
 }

@@ -13,6 +13,7 @@ find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 find_package(Qt6 COMPONENTS Network REQUIRED)
 find_package(Qt6 COMPONENTS Charts REQUIRED)
+find_package(Qt6 COMPONENTS Multimedia REQUIRED)
 
 set(PROJECT_SOURCES
         main.cpp
@@ -33,6 +34,14 @@ set(PROJECT_SOURCES
         conditionchart.h
         forecastclient.cpp
         forecastclient.h
+        logindialog.cpp
+        logindialog.h
+        usermanager.cpp
+        usermanager.h
+        logbookmanager.cpp
+        logbookmanager.h
+        logbookentrydialog.cpp
+        logbookentrydialog.h
 )
 
 if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
@@ -40,6 +49,8 @@ if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
         images.qrc
+        resources.qrc
+        images/PHPlus_logo.icns
     )
 # Define target properties for Android with Qt 6 as:
 #    set_property(TARGET PlantHealthPlus APPEND PROPERTY QT_ANDROID_PACKAGE_SOURCE_DIR
@@ -63,6 +74,7 @@ target_link_libraries(PlantHealthPlus PRIVATE
 	Qt${QT_VERSION_MAJOR}::Widgets
         Qt6::Network
         Qt6::Charts
+        Qt6::Multimedia
 )
 
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
@@ -75,6 +87,7 @@ set_target_properties(PlantHealthPlus PROPERTIES
     ${BUNDLE_ID_OPTION}
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
     MACOSX_BUNDLE_SHORT_VERSION_STRING ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
+    MACOSX_BUNDLE_ICON_FILE PHPlus_logo.icns
     MACOSX_BUNDLE TRUE
     WIN32_EXECUTABLE TRUE
 )
@@ -87,5 +100,10 @@ install(TARGETS PlantHealthPlus
 )
 
 if(QT_VERSION_MAJOR EQUAL 6)
+    # Copy the icon file to the bundle Resources directory
+    set(ICON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/images/PHPlus_logo.icns")
+    set_source_files_properties(${ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+    target_sources(PlantHealthPlus PRIVATE ${ICON_FILE})
+    
     qt_finalize_executable(PlantHealthPlus)
 endif()

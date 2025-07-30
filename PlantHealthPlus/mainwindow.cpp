@@ -1,5 +1,9 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+#include "scraper.h"
+#include "usermanager.h"
+#include "logbookmanager.h"
+#include "logbookentrydialog.h"
 #include <QTimer>
 #include <QScrollArea>
 #include <QScrollBar>
@@ -11,6 +15,10 @@
 #include <QDialog>
 #include <QLabel>
 #include <QPushButton>
+#include <QSlider>
+#include <QMediaPlayer>
+#include <QAudioOutput>
+#include <QUrl>
 #include <QResizeEvent>
 #include <QShowEvent>
 #include <QPalette>
@@ -20,6 +28,8 @@
 #include <QPropertyAnimation>
 #include <QGraphicsOpacityEffect>
 #include "addplantdialog.h"
+#include <QIcon>
+
 #include "scraper.h"
 
 MainWindow::MainWindow(QWidget *parent)
@@ -30,11 +40,364 @@ MainWindow::MainWindow(QWidget *parent)
     , m_plantsContainer(nullptr)
     , m_plantsGridLayout(nullptr)
     , m_addPlantButton(nullptr)
+    , m_loginPage(nullptr)
+    , m_usernameEdit(nullptr)
+    , m_passwordEdit(nullptr)
+    , m_confirmPasswordEdit(nullptr)
+    , m_loginButton(nullptr)
+    , m_registerButton(nullptr)
+    , m_togglePasswordButton(nullptr)
+    , m_statusLabel(nullptr)
+    , m_confirmLabel(nullptr)
+    , m_mainInterface(nullptr)
+    , m_userManager(nullptr)
+    , m_isRegisterMode(false)
+    , m_notificationButton(nullptr)
+    , m_notificationBadge(nullptr)
+    , m_notificationSound(nullptr)
+    , m_audioOutput(nullptr)
+    , m_currentVolume(50)
+    , m_logbookManager(nullptr)
+    , m_logbookEntryList(nullptr)
+    , m_logbookContentDisplay(nullptr)
+    , m_logbookImagesArea(nullptr)
+    , m_logbookImagesContainer(nullptr)
+    , m_logbookImagesLayout(nullptr)
+    , m_addLogbookEntryButton(nullptr)
+    , m_editLogbookEntryButton(nullptr)
+    , m_deleteLogbookEntryButton(nullptr)
+    , m_logbookEntryTitle(nullptr)
+    , m_logbookEntryDates(nullptr)
 {
+    // Initialize user manager
+    m_userManager = new UserManager();
+    
+    // Initialize logbook manager
+    m_logbookManager = new LogbookManager();
+    
+    // Initialize resize timer early to prevent segfaults
+    m_resizeTimer = new QTimer(this);
+    m_resizeTimer->setSingleShot(true);
+    m_resizeTimer->setInterval(100); // 100ms delay
+    connect(m_resizeTimer, &QTimer::timeout, this, &MainWindow::onResizeTimeout);
+    
+    // Set window properties
+    setWindowTitle("Plant Health Plus");
+    
+    // Set window icon for taskbar/dock
+    QIcon appIcon(":/images/images/PHPlus_logo.png");
+    setWindowIcon(appIcon);
+    
+    // For macOS, also set the application icon
+    QApplication::setWindowIcon(appIcon);
+    
+    setMinimumSize(400, 500);
+    resize(800, 600);
+    
+    // Setup UI first
     ui->setupUi(this);
 
     // Setup layout for condition buttons
     setupConditionLayout();
+    
+    // Store reference to the main interface and hide it initially
+    m_mainInterface = ui->centralwidget;
+    m_mainInterface->hide();
+    
+    // Setup login page as the initial view
+    setupLoginPage();
+}
+
+MainWindow::~MainWindow()
+{
+    delete ui;
+}
+
+void MainWindow::setupLoginPage()
+{
+    // Create the login page widget as a child of the main window
+    m_loginPage = new QWidget(this);
+    m_loginPage->setGeometry(0, 0, width(), height());
+    m_loginPage->raise(); // Bring to front
+    m_loginPage->show();
+    
+    // Create main layout
+    QVBoxLayout* mainLayout = new QVBoxLayout(m_loginPage);
+    mainLayout->setAlignment(Qt::AlignCenter);
+    mainLayout->setSpacing(20);
+    mainLayout->setContentsMargins(40, 40, 40, 40);
+    
+    // Title
+    QLabel* titleLabel = new QLabel("Plant Health Plus", m_loginPage);
+    titleLabel->setAlignment(Qt::AlignCenter);
+    titleLabel->setStyleSheet("QLabel { font-size: 28px; font-weight: bold; color: #2e7d32; margin-bottom: 20px; }");
+    mainLayout->addWidget(titleLabel);
+    
+    // Subtitle
+    QLabel* subtitleLabel = new QLabel("Track and monitor your plant's health", m_loginPage);
+    subtitleLabel->setAlignment(Qt::AlignCenter);
+    subtitleLabel->setStyleSheet("QLabel { font-size: 14px; margin-bottom: 30px; }");
+    mainLayout->addWidget(subtitleLabel);
+    
+    // Login form container
+    QFrame* formFrame = new QFrame(m_loginPage);
+    formFrame->setMaximumWidth(400);
+    formFrame->setStyleSheet("QFrame { border: 1px solid palette(mid); border-radius: 8px; padding: 25px; }");
+    
+    QVBoxLayout* formLayout = new QVBoxLayout(formFrame);
+    formLayout->setSpacing(12);
+    
+    // Form fields - using custom layout for better control
+    QVBoxLayout* fieldsLayout = new QVBoxLayout();
+    fieldsLayout->setSpacing(12);
+    
+    // Username field - horizontal layout
+    QHBoxLayout* usernameLayout = new QHBoxLayout();
+    QLabel* usernameLabel = new QLabel("Username:", formFrame);
+    usernameLabel->setStyleSheet("QLabel { font-size: 14px; font-weight: normal; padding: 0px; margin: 0px; }");
+    usernameLabel->setFixedWidth(90); // Fixed width to keep labels compact
+    usernameLabel->setFixedHeight(40); // Fixed height for consistency
+    usernameLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter); // Center text vertically
+    m_usernameEdit = new QLineEdit(formFrame);
+    m_usernameEdit->setPlaceholderText("Enter username");
+    m_usernameEdit->setStyleSheet("QLineEdit { padding: 8px; border: 1px solid palette(mid); border-radius: 3px; font-size: 14px; background-color: palette(base); color: palette(text); }");
+    usernameLayout->addWidget(usernameLabel);
+    usernameLayout->addWidget(m_usernameEdit);
+    fieldsLayout->addLayout(usernameLayout);
+    
+    // Password field with visibility toggle - horizontal layout
+    QHBoxLayout* passwordRowLayout = new QHBoxLayout();
+    QLabel* passwordLabel = new QLabel("Password:", formFrame);
+    passwordLabel->setStyleSheet("QLabel { font-size: 14px; font-weight: normal; padding: 0px; margin: 0px; }");
+    passwordLabel->setFixedWidth(90); // Same width as username label
+    passwordLabel->setFixedHeight(40); // Fixed height for consistency
+    passwordLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter); // Center text vertically
+    m_passwordEdit = new QLineEdit(formFrame);
+    m_passwordEdit->setEchoMode(QLineEdit::Password);
+    m_passwordEdit->setPlaceholderText("Enter password");
+    m_passwordEdit->setStyleSheet("QLineEdit { padding: 8px; border: 1px solid palette(mid); border-radius: 3px; font-size: 14px; background-color: palette(base); color: palette(text); }");
+    
+    m_togglePasswordButton = new QPushButton("👁", formFrame);
+    m_togglePasswordButton->setMaximumWidth(30);
+    m_togglePasswordButton->setStyleSheet("QPushButton { border: none; font-size: 16px; color: palette(text); }");
+    connect(m_togglePasswordButton, &QPushButton::clicked, this, &MainWindow::togglePasswordVisibility);
+    
+    QHBoxLayout* passwordInputLayout = new QHBoxLayout();
+    passwordInputLayout->addWidget(m_passwordEdit);
+    passwordInputLayout->addWidget(m_togglePasswordButton);
+    passwordInputLayout->setContentsMargins(0, 0, 0, 0);
+    
+    passwordRowLayout->addWidget(passwordLabel);
+    passwordRowLayout->addLayout(passwordInputLayout);
+    fieldsLayout->addLayout(passwordRowLayout);
+    
+    // Confirm password field (initially hidden) - horizontal layout
+    QHBoxLayout* confirmPasswordLayout = new QHBoxLayout();
+    m_confirmLabel = new QLabel("Confirm Password:", formFrame);
+    m_confirmLabel->setStyleSheet("QLabel { font-size: 14px; font-weight: normal; padding: 0px; margin: 0px; }");
+    m_confirmLabel->setFixedWidth(120); // Same width as other labels
+    m_confirmLabel->setFixedHeight(40); // Fixed height for consistency
+    m_confirmLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter); // Center text vertically
+    m_confirmPasswordEdit = new QLineEdit(formFrame);
+    m_confirmPasswordEdit->setEchoMode(QLineEdit::Password);
+    m_confirmPasswordEdit->setPlaceholderText("Confirm password");
+    m_confirmPasswordEdit->setStyleSheet("QLineEdit { padding: 8px; border: 1px solid palette(mid); border-radius: 3px; font-size: 14px; background-color: palette(base); color: palette(text); }");
+    confirmPasswordLayout->addWidget(m_confirmLabel);
+    confirmPasswordLayout->addWidget(m_confirmPasswordEdit);
+    fieldsLayout->addLayout(confirmPasswordLayout);
+    
+    // Hide confirm password initially
+    m_confirmLabel->hide();
+    m_confirmPasswordEdit->hide();
+    
+    formLayout->addLayout(fieldsLayout);
+    
+    // Status label - clean text only, no background
+    m_statusLabel = new QLabel(formFrame);
+    m_statusLabel->setAlignment(Qt::AlignCenter);
+    m_statusLabel->setMinimumHeight(20); // Minimum height to reserve space
+    m_statusLabel->setWordWrap(true); // Allow text wrapping
+    m_statusLabel->setStyleSheet("QLabel { font-size: 12px; color: transparent; }"); // Initially transparent
+    m_statusLabel->setText(""); // Start with empty text
+    formLayout->addWidget(m_statusLabel);
+    
+    // Buttons
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    
+    m_loginButton = new QPushButton("Login", formFrame);
+    m_loginButton->setStyleSheet("QPushButton { background-color: #28a745; color: white; padding: 12px 24px; border: none; border-radius: 4px; font-size: 14px; font-weight: bold; } QPushButton:hover { background-color: #218838; }");
+    connect(m_loginButton, &QPushButton::clicked, this, &MainWindow::onLoginClicked);
+    
+    m_registerButton = new QPushButton("Register", formFrame);
+    m_registerButton->setStyleSheet("QPushButton { background-color: #007bff; color: white; padding: 12px 24px; border: none; border-radius: 4px; font-size: 14px; font-weight: bold; } QPushButton:hover { background-color: #0056b3; }");
+    connect(m_registerButton, &QPushButton::clicked, this, &MainWindow::onRegisterClicked);
+    
+    buttonLayout->addWidget(m_loginButton);
+    buttonLayout->addWidget(m_registerButton);
+    formLayout->addLayout(buttonLayout);
+    
+    mainLayout->addWidget(formFrame, 0, Qt::AlignCenter);
+    
+    // Connect Enter key to login
+    connect(m_usernameEdit, &QLineEdit::returnPressed, this, &MainWindow::onLoginClicked);
+    connect(m_passwordEdit, &QLineEdit::returnPressed, this, &MainWindow::onLoginClicked);
+    connect(m_confirmPasswordEdit, &QLineEdit::returnPressed, this, &MainWindow::onLoginClicked);
+}
+
+void MainWindow::onLoginClicked()
+{
+    if (!validateLoginInput()) {
+        return;
+    }
+    
+    QString username = m_usernameEdit->text().trimmed();
+    QString password = m_passwordEdit->text();
+    
+    if (m_isRegisterMode) {
+        // Register new user
+        if (m_userManager->userExists(username)) {
+            showErrorMessage("Username already exists!");
+            return;
+        }
+        
+        if (m_userManager->createUser(username, password)) {
+            showSuccessMessage("Registration successful! Please login.");
+            
+            // Switch to login mode
+            m_isRegisterMode = false;
+            m_confirmLabel->hide();
+            m_confirmPasswordEdit->hide();
+            m_registerButton->setText("Register");
+            m_loginButton->setText("Login");
+            
+            // Clear form
+            m_passwordEdit->clear();
+            m_confirmPasswordEdit->clear();
+        } else {
+            showErrorMessage("Registration failed!");
+        }
+    } else {
+        // Login existing user
+        if (m_userManager->authenticateUser(username, password)) {
+            showSuccessMessage("Login successful!");
+            
+            // Setup main interface with authenticated user
+            showMainInterface();
+        } else {
+            showErrorMessage("Invalid username or password!");
+        }
+    }
+}
+
+void MainWindow::onRegisterClicked()
+{
+    m_isRegisterMode = !m_isRegisterMode;
+    
+    if (m_isRegisterMode) {
+        m_confirmLabel->show();
+        m_confirmPasswordEdit->show();
+        m_registerButton->setText("Back to Login");
+        m_loginButton->setText("Register");
+    } else {
+        m_confirmLabel->hide();
+        m_confirmPasswordEdit->hide();
+        m_registerButton->setText("Register");
+        m_loginButton->setText("Login");
+    }
+    
+    m_statusLabel->setText(""); // Clear status message
+    m_statusLabel->setStyleSheet("QLabel { font-size: 12px; color: transparent; }"); // Make transparent
+    m_passwordEdit->clear();
+    m_confirmPasswordEdit->clear();
+}
+
+void MainWindow::togglePasswordVisibility()
+{
+    if (m_passwordEdit->echoMode() == QLineEdit::Password) {
+        m_passwordEdit->setEchoMode(QLineEdit::Normal);
+        m_confirmPasswordEdit->setEchoMode(QLineEdit::Normal);
+        m_togglePasswordButton->setText("🙈");
+    } else {
+        m_passwordEdit->setEchoMode(QLineEdit::Password);
+        m_confirmPasswordEdit->setEchoMode(QLineEdit::Password);
+        m_togglePasswordButton->setText("👁");
+    }
+}
+
+bool MainWindow::validateLoginInput()
+{
+    QString username = m_usernameEdit->text().trimmed();
+    QString password = m_passwordEdit->text();
+    QString confirmPassword = m_confirmPasswordEdit->text();
+    
+    if (username.isEmpty()) {
+        showErrorMessage("Username cannot be empty!");
+        return false;
+    }
+    
+    if (password.isEmpty()) {
+        showErrorMessage("Password cannot be empty!");
+        return false;
+    }
+    
+    if (m_isRegisterMode) {
+        if (password.length() < 6) {
+            showErrorMessage("Password must be at least 6 characters long!");
+            return false;
+        }
+        
+        if (password != confirmPassword) {
+            showErrorMessage("Passwords do not match!");
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+void MainWindow::showSuccessMessage(const QString& message)
+{
+    qDebug() << "Showing success message:" << message;
+    m_statusLabel->setText(message);
+    // Use system theme colors for success message - clean text only
+    QPalette palette = this->palette();
+    QColor successColor = QColor(40, 167, 69); // Green that works in both themes
+    if (palette.color(QPalette::Base).lightness() < 128) {
+        successColor = QColor(72, 187, 120); // Lighter green for dark mode
+    }
+    QString styleSheet = QString("QLabel { color: %1; font-size: 12px; font-weight: bold; }").arg(successColor.name());
+    m_statusLabel->setStyleSheet(styleSheet);
+    qDebug() << "Applied success style:" << styleSheet;
+}
+
+void MainWindow::showErrorMessage(const QString& message)
+{
+    qDebug() << "Showing error message:" << message;
+    m_statusLabel->setText(message);
+    // Use system theme colors for error message - clean text only
+    QPalette palette = this->palette();
+    QColor errorColor = QColor(220, 53, 69); // Red that works in both themes  
+    if (palette.color(QPalette::Base).lightness() < 128) {
+        errorColor = QColor(255, 107, 107); // Lighter red for dark mode
+    }
+    QString styleSheet = QString("QLabel { color: %1; font-size: 12px; font-weight: bold; }").arg(errorColor.name());
+    m_statusLabel->setStyleSheet(styleSheet);
+    qDebug() << "Applied error style:" << styleSheet;
+}
+
+void MainWindow::showMainInterface()
+{
+    QString username = m_usernameEdit->text().trimmed();
+    qDebug() << "showMainInterface called for user:" << username;
+    
+    // Hide login page and show main interface
+    m_loginPage->hide();
+    m_mainInterface->show();
+    qDebug() << "Login page hidden, main interface shown";
+    
+    // Setup responsive layout for central widget
+    setupResponsiveLayout();
+    qDebug() << "Responsive layout setup complete";
     
     // Set minimum window size to ensure at least 2 plants per row
     // Calculation: 2 cards (280px each) + 3 spacings (15px each) + scroll margins (40px) + sidebars (131px + 81px)
@@ -46,21 +409,33 @@ MainWindow::MainWindow(QWidget *parent)
     
     int minWidthForPlants = (2 * cardWidth) + (3 * spacing) + scrollMargins; // 2 cards + spacings + margins = 645px
     int totalMinWidth = minWidthForPlants + leftSidebar + rightSidebar; // 645 + 131 + 81 = 857px
-    int minHeight = PlantCard::CARD_EXPANDED_HEIGHT + 100; // Expanded card height + buffer = 480px
+    
+    // Calculate minimum height to ensure tab buttons and bottom buttons are visible
+    // Tab buttons: 3 buttons at ~50px each = 150px
+    // Spacer and bottom buttons: settings + notification buttons = 80px (40px each)
+    // Additional margin/spacing = 30px (reduced to allow more contraction)
+    // Total sidebar minimum = 260px
+    int minSidebarHeight = 260; // Minimum height for tab sidebar
+    int minHeight = qMax(PlantCard::CARD_EXPANDED_HEIGHT + 100, minSidebarHeight); // Use the larger of the two
     
     setMinimumSize(totalMinWidth, minHeight);
     qDebug() << "Set minimum window size to:" << totalMinWidth << "x" << minHeight;
-    
-    // Setup responsive layout for central widget
-    setupResponsiveLayout();
 
-    // Initialize plant manager
+    // Initialize plant manager with the authenticated user
     m_plantManager = new PlantManager(this);
+    m_plantManager->setCurrentUser(username);
+    
+    // Initialize logbook manager with the authenticated user
+    m_logbookManager->setCurrentUser(username);
+    
+    // Load user's volume setting
+    m_currentVolume = m_userManager->getUserVolume();
     
     // Connect plant manager signals
     connect(m_plantManager, &PlantManager::plantAdded, this, &MainWindow::onPlantAdded);
     connect(m_plantManager, &PlantManager::plantRemoved, this, &MainWindow::onPlantRemoved);
     connect(m_plantManager, &PlantManager::plantUpdated, this, &MainWindow::onPlantUpdated);
+    connect(m_plantManager, &PlantManager::dataChanged, this, &MainWindow::updatePlantGrid);
 
     Scraper* scraper = new Scraper(this);
     connect(scraper, &Scraper::tempReady, this, [this](const QString& temp) {
@@ -75,6 +450,7 @@ MainWindow::MainWindow(QWidget *parent)
         if (ok) {
             m_currentTemp = tempValue;
             updateAllPlantCardsEnvironmentalData();
+            checkPlantConditions(); // Check for condition violations
         }
     });
 
@@ -88,6 +464,7 @@ MainWindow::MainWindow(QWidget *parent)
         if (ok) {
             m_currentUV = uvValue;
             updateAllPlantCardsEnvironmentalData();
+            checkPlantConditions(); // Check for condition violations
         }
     });
 
@@ -103,6 +480,7 @@ MainWindow::MainWindow(QWidget *parent)
         if (ok) {
             m_currentHumidity = humidValue;
             updateAllPlantCardsEnvironmentalData();
+            checkPlantConditions(); // Check for condition violations
         }
     });
 
@@ -132,6 +510,16 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->myplants_tab, &QPushButton::clicked, [this]() { ui->stackedWidget->setCurrentIndex(0); });
     connect(ui->logbook_tab, &QPushButton::clicked, [this]() { ui->stackedWidget->setCurrentIndex(1); });
     connect(ui->plantpedia_tab, &QPushButton::clicked, [this]() { ui->stackedWidget->setCurrentIndex(2); });
+    
+    // Connect settings button (disconnect first to prevent duplicates)
+    disconnect(ui->settings_button, &QPushButton::clicked, this, &MainWindow::onSettingsClicked);
+    connect(ui->settings_button, &QPushButton::clicked, this, &MainWindow::onSettingsClicked);
+    
+    // Setup notification system
+    setupNotificationButton();
+    
+    // Load user's volume setting
+    m_currentVolume = m_userManager->getUserVolume();
 
     // Set the initial state
     ui->myplants_tab->setChecked(true);
@@ -139,6 +527,11 @@ MainWindow::MainWindow(QWidget *parent)
     
     // Setup My Plants page
     setupMyPlantsPage();
+    qDebug() << "My Plants page setup complete";
+    
+    // Setup Logbook page
+    setupLogbookPage();
+    qDebug() << "Logbook page setup complete";
     
     // Apply initial theme
     updateScrollAreaTheme();
@@ -146,26 +539,20 @@ MainWindow::MainWindow(QWidget *parent)
     // Connect to theme changes
     connect(QApplication::styleHints(), &QStyleHints::colorSchemeChanged,
             this, &MainWindow::onThemeChanged);
-    
-    // Setup resize timer
-    m_resizeTimer = new QTimer(this);
-    m_resizeTimer->setSingleShot(true);
-    m_resizeTimer->setInterval(100); // 100ms delay
-    connect(m_resizeTimer, &QTimer::timeout, this, &MainWindow::onResizeTimeout);
-}
-
-MainWindow::~MainWindow()
-{
-    delete ui;
 }
 
 void MainWindow::setupMyPlantsPage()
 {
+    qDebug() << "setupMyPlantsPage called";
+    
     // Find the My Plants page widget
     QWidget* myPlantsPage = ui->stackedWidget->widget(0); // Assuming index 0 is My Plants
     if (!myPlantsPage) {
+        qDebug() << "Error: My Plants page widget not found!";
         return;
     }
+    
+    qDebug() << "My Plants page widget found, clearing existing layout";
     
     // Clear existing layout if any
     delete myPlantsPage->layout();
@@ -236,6 +623,260 @@ void MainWindow::setupMyPlantsPage()
     
     // Initially populate the plant grid
     updatePlantGrid();
+    qDebug() << "setupMyPlantsPage completed, grid updated";
+}
+
+void MainWindow::setupLogbookPage()
+{
+    qDebug() << "setupLogbookPage called";
+    
+    // Find the Logbook page widget (assuming index 1 is Logbook)
+    QWidget* logbookPage = ui->stackedWidget->widget(1);
+    if (!logbookPage) {
+        qDebug() << "Error: Logbook page widget not found!";
+        return;
+    }
+    
+    // Check if logbook is already set up to prevent duplicates
+    if (m_logbookEntryList != nullptr) {
+        qDebug() << "Logbook page already set up, skipping...";
+        return;
+    }
+    
+    qDebug() << "Logbook page widget found, clearing existing layout";
+    
+    // Clear existing layout if any and ensure all child widgets are properly cleaned up
+    QLayout* existingLayout = logbookPage->layout();
+    if (existingLayout) {
+        // Clear all widgets from the layout first
+        QLayoutItem* item;
+        while ((item = existingLayout->takeAt(0)) != nullptr) {
+            if (QWidget* widget = item->widget()) {
+                widget->setParent(nullptr);
+                widget->deleteLater();
+            }
+            if (QLayout* childLayout = item->layout()) {
+                delete childLayout;
+            }
+            delete item;
+        }
+        delete existingLayout;
+    }
+    
+    // Reset all logbook UI pointers to ensure clean state
+    m_logbookEntryList = nullptr;
+    m_logbookContentDisplay = nullptr;
+    m_logbookImagesArea = nullptr;
+    m_logbookImagesContainer = nullptr;
+    m_logbookImagesLayout = nullptr;
+    m_addLogbookEntryButton = nullptr;
+    m_editLogbookEntryButton = nullptr;
+    m_deleteLogbookEntryButton = nullptr;
+    m_logbookEntryTitle = nullptr;
+    m_logbookEntryDates = nullptr;
+    
+    // Create main layout for the page
+    QHBoxLayout* pageLayout = new QHBoxLayout(logbookPage);
+    pageLayout->setContentsMargins(20, 20, 20, 20);
+    pageLayout->setSpacing(15);
+    
+    // Left side - Entry list
+    QVBoxLayout* leftLayout = new QVBoxLayout();
+    
+    // Header for entry list
+    QHBoxLayout* leftHeaderLayout = new QHBoxLayout();
+    QLabel* entriesLabel = new QLabel("Journal Entries");
+    entriesLabel->setFont(QFont("Arial", 16, QFont::Bold));
+    entriesLabel->setStyleSheet("color: #2E7D32;");
+    
+    m_addLogbookEntryButton = new QPushButton("+ New Entry");
+    m_addLogbookEntryButton->setStyleSheet(
+        "QPushButton {"
+        "    background-color: #4CAF50;"
+        "    color: white;"
+        "    border: none;"
+        "    padding: 8px 16px;"
+        "    border-radius: 4px;"
+        "    font-weight: bold;"
+        "    font-size: 11px;"
+        "}"
+        "QPushButton:hover {"
+        "    background-color: #45a049;"
+        "}"
+        "QPushButton:pressed {"
+        "    background-color: #3d8b40;"
+        "}"
+    );
+    connect(m_addLogbookEntryButton, &QPushButton::clicked, this, &MainWindow::onAddLogbookEntryClicked);
+    
+    leftHeaderLayout->addWidget(entriesLabel);
+    leftHeaderLayout->addStretch();
+    leftHeaderLayout->addWidget(m_addLogbookEntryButton);
+    
+    // Entry list widget
+    m_logbookEntryList = new QListWidget();
+    m_logbookEntryList->setStyleSheet(
+        "QListWidget {"
+        "    border: 1px solid palette(mid);"
+        "    border-radius: 6px;"
+        "    background-color: palette(base);"
+        "    selection-background-color: #E8F5E8;"
+        "}"
+        "QListWidget::item {"
+        "    padding: 10px;"
+        "    border-bottom: 1px solid palette(mid);"
+        "}"
+        "QListWidget::item:hover {"
+        "    background-color: palette(alternate-base);"
+        "}"
+        "QListWidget::item:selected {"
+        "    background-color: #E8F5E8;"
+        "    color: #2E7D32;"
+        "}"
+    );
+    
+    // Enable rich text rendering for list items
+    m_logbookEntryList->setTextElideMode(Qt::ElideNone);
+    m_logbookEntryList->setWordWrap(true);
+    
+    connect(m_logbookEntryList, &QListWidget::itemClicked, [this](QListWidgetItem* item) {
+        if (item && item->data(Qt::UserRole).isValid()) {
+            QString entryId = item->data(Qt::UserRole).toString();
+            onLogbookEntrySelected(entryId);
+        }
+    });
+    
+    leftLayout->addLayout(leftHeaderLayout);
+    leftLayout->addWidget(m_logbookEntryList);
+    
+    // Right side - Entry display and editing
+    QVBoxLayout* rightLayout = new QVBoxLayout();
+    
+    // Header for entry display
+    QHBoxLayout* rightHeaderLayout = new QHBoxLayout();
+    
+    m_logbookEntryTitle = new QLabel("Select an entry to view");
+    m_logbookEntryTitle->setFont(QFont("Arial", 18, QFont::Bold));
+    m_logbookEntryTitle->setStyleSheet("color: #2E7D32;");
+    
+    m_logbookEntryDates = new QLabel("");
+    m_logbookEntryDates->setStyleSheet("color: palette(dark); font-size: 12px;");
+    m_logbookEntryDates->setAlignment(Qt::AlignRight);
+    
+    rightHeaderLayout->addWidget(m_logbookEntryTitle);
+    rightHeaderLayout->addStretch();
+    rightHeaderLayout->addWidget(m_logbookEntryDates);
+    
+    // Action buttons
+    QHBoxLayout* actionButtonsLayout = new QHBoxLayout();
+    
+    m_editLogbookEntryButton = new QPushButton("Edit Entry");
+    m_editLogbookEntryButton->setStyleSheet(
+        "QPushButton {"
+        "    background-color: #007bff;"
+        "    color: white;"
+        "    border: none;"
+        "    padding: 8px 16px;"
+        "    border-radius: 4px;"
+        "    font-weight: bold;"
+        "    font-size: 12px;"
+        "}"
+        "QPushButton:hover {"
+        "    background-color: #0056b3;"
+        "}"
+        "QPushButton:disabled {"
+        "    background-color: palette(mid);"
+        "    color: palette(dark);"
+        "}"
+    );
+    m_editLogbookEntryButton->setEnabled(false);
+    connect(m_editLogbookEntryButton, &QPushButton::clicked, this, &MainWindow::onEditLogbookEntryClicked);
+    
+    m_deleteLogbookEntryButton = new QPushButton("Delete Entry");
+    m_deleteLogbookEntryButton->setStyleSheet(
+        "QPushButton {"
+        "    background-color: #dc3545;"
+        "    color: white;"
+        "    border: none;"
+        "    padding: 8px 16px;"
+        "    border-radius: 4px;"
+        "    font-weight: bold;"
+        "    font-size: 12px;"
+        "}"
+        "QPushButton:hover {"
+        "    background-color: #c82333;"
+        "}"
+        "QPushButton:disabled {"
+        "    background-color: palette(mid);"
+        "    color: palette(dark);"
+        "}"
+    );
+    m_deleteLogbookEntryButton->setEnabled(false);
+    connect(m_deleteLogbookEntryButton, &QPushButton::clicked, this, &MainWindow::onDeleteLogbookEntryClicked);
+    
+    actionButtonsLayout->addStretch();
+    actionButtonsLayout->addWidget(m_editLogbookEntryButton);
+    actionButtonsLayout->addWidget(m_deleteLogbookEntryButton);
+    
+    // Content display area
+    m_logbookContentDisplay = new QTextEdit();
+    m_logbookContentDisplay->setReadOnly(true);
+    m_logbookContentDisplay->setStyleSheet(
+        "QTextEdit {"
+        "    border: 1px solid palette(mid);"
+        "    border-radius: 6px;"
+        "    background-color: palette(base);"
+        "    padding: 10px;"
+        "    font-size: 14px;"
+        "    line-height: 1.4;"
+        "}"
+    );
+    m_logbookContentDisplay->setPlaceholderText("Select an entry to view its content...");
+    
+    // Images display area
+    QLabel* imagesLabel = new QLabel("Images");
+    imagesLabel->setFont(QFont("Arial", 14, QFont::Bold));
+    imagesLabel->setStyleSheet("color: #2E7D32; margin-top: 10px;");
+    
+    m_logbookImagesArea = new QScrollArea();
+    m_logbookImagesArea->setWidgetResizable(true);
+    m_logbookImagesArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    m_logbookImagesArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_logbookImagesArea->setMaximumHeight(200);
+    m_logbookImagesArea->setStyleSheet(
+        "QScrollArea {"
+        "    border: 1px solid palette(mid);"
+        "    border-radius: 6px;"
+        "    background-color: palette(base);"
+        "}"
+    );
+    
+    // Install event filter to handle scroll area resize events
+    m_logbookImagesArea->installEventFilter(this);
+    
+    m_logbookImagesContainer = new QWidget();
+    m_logbookImagesContainer->setStyleSheet("background-color: transparent;");
+    
+    m_logbookImagesLayout = new QGridLayout(m_logbookImagesContainer);
+    m_logbookImagesLayout->setSpacing(10);
+    m_logbookImagesLayout->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    
+    m_logbookImagesArea->setWidget(m_logbookImagesContainer);
+    
+    rightLayout->addLayout(rightHeaderLayout);
+    rightLayout->addLayout(actionButtonsLayout);
+    rightLayout->addWidget(m_logbookContentDisplay, 2); // Give content display more space
+    rightLayout->addWidget(imagesLabel);
+    rightLayout->addWidget(m_logbookImagesArea, 1);
+    
+    // Add left and right layouts to main layout
+    pageLayout->addLayout(leftLayout, 1);   // Entry list takes 1/3
+    pageLayout->addLayout(rightLayout, 2);  // Entry display takes 2/3
+    
+    // Load initial data
+    updateLogbookEntryList();
+    
+    qDebug() << "setupLogbookPage completed";
 }
 
 void MainWindow::setupConditionLayout()
@@ -672,9 +1313,309 @@ PlantCard* MainWindow::createPlantCard(const PlantData& plantData, int index)
     return card;
 }
 
+// Logbook methods implementation
+void MainWindow::onAddLogbookEntryClicked()
+{
+    LogbookEntryDialog dialog(m_logbookManager, this);
+    if (dialog.exec() == QDialog::Accepted) {
+        LogbookEntry newEntry = dialog.getEntry();
+        if (m_logbookManager->addEntry(newEntry)) {
+            qDebug() << "Logbook entry added successfully";
+            updateLogbookEntryList();
+            // Select the newly added entry
+            onLogbookEntrySelected(newEntry.id);
+        } else {
+            QMessageBox::warning(this, "Error", "Failed to add logbook entry.");
+        }
+    }
+}
+
+void MainWindow::onEditLogbookEntryClicked()
+{
+    if (m_selectedLogbookEntryId.isEmpty()) {
+        return;
+    }
+    
+    LogbookEntry currentEntry = m_logbookManager->getEntry(m_selectedLogbookEntryId);
+    LogbookEntryDialog dialog(currentEntry, m_logbookManager, this);
+    
+    if (dialog.exec() == QDialog::Accepted) {
+        LogbookEntry updatedEntry = dialog.getEntry();
+        // Preserve the original ID and creation date
+        updatedEntry.id = currentEntry.id;
+        updatedEntry.dateCreated = currentEntry.dateCreated;
+        updatedEntry.dateModified = QDateTime::currentDateTime();
+        
+        if (m_logbookManager->updateEntry(m_selectedLogbookEntryId, updatedEntry)) {
+            qDebug() << "Logbook entry updated successfully";
+            updateLogbookEntryList();
+            // Refresh the display
+            onLogbookEntrySelected(m_selectedLogbookEntryId);
+        } else {
+            QMessageBox::warning(this, "Error", "Failed to update logbook entry.");
+        }
+    }
+}
+
+void MainWindow::onDeleteLogbookEntryClicked()
+{
+    if (m_selectedLogbookEntryId.isEmpty()) {
+        return;
+    }
+    
+    LogbookEntry entry = m_logbookManager->getEntry(m_selectedLogbookEntryId);
+    
+    // Create confirmation dialog
+    QDialog dialog(this);
+    dialog.setWindowTitle("Delete Entry");
+    dialog.setModal(true);
+    
+    QVBoxLayout* layout = new QVBoxLayout(&dialog);
+    
+    QLabel* label = new QLabel(QString("Are you sure you want to delete the entry '%1'?").arg(entry.title));
+    label->setWordWrap(true);
+    layout->addWidget(label);
+    
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    QPushButton* yesButton = new QPushButton("Yes");
+    QPushButton* noButton = new QPushButton("No");
+    
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(noButton);
+    buttonLayout->addWidget(yesButton);
+    layout->addLayout(buttonLayout);
+    
+    connect(yesButton, &QPushButton::clicked, &dialog, &QDialog::accept);
+    connect(noButton, &QPushButton::clicked, &dialog, &QDialog::reject);
+    
+    noButton->setDefault(true);
+    noButton->setFocus();
+    
+    if (dialog.exec() == QDialog::Accepted) {
+        if (m_logbookManager->deleteEntry(m_selectedLogbookEntryId)) {
+            qDebug() << "Logbook entry deleted successfully";
+            updateLogbookEntryList();
+            clearLogbookDisplay();
+            m_selectedLogbookEntryId.clear();
+        } else {
+            QMessageBox::warning(this, "Error", "Failed to delete logbook entry.");
+        }
+    }
+}
+
+void MainWindow::onLogbookEntrySelected(const QString& entryId)
+{
+    m_selectedLogbookEntryId = entryId;
+    displayLogbookEntry(entryId);
+    
+    // Enable action buttons
+    m_editLogbookEntryButton->setEnabled(true);
+    m_deleteLogbookEntryButton->setEnabled(true);
+}
+
+void MainWindow::updateLogbookEntryList()
+{
+    if (!m_logbookEntryList || !m_logbookManager) {
+        return;
+    }
+    
+    m_logbookEntryList->clear();
+    
+    QList<LogbookEntry> entries = m_logbookManager->getAllEntries();
+    
+    // Sort entries by creation date (newest first)
+    std::sort(entries.begin(), entries.end(), [](const LogbookEntry& a, const LogbookEntry& b) {
+        return a.dateCreated > b.dateCreated;
+    });
+    
+    for (const LogbookEntry& entry : entries) {
+        QListWidgetItem* item = new QListWidgetItem();
+        
+        // Create a custom widget for the list item
+        QWidget* itemWidget = new QWidget();
+        itemWidget->setStyleSheet("QWidget { background-color: transparent; }");
+        
+        QVBoxLayout* itemLayout = new QVBoxLayout(itemWidget);
+        itemLayout->setContentsMargins(10, 8, 10, 8);
+        itemLayout->setSpacing(2);
+        
+        // Title label
+        QLabel* titleLabel = new QLabel(entry.title.isEmpty() ? "Untitled Entry" : entry.title);
+        titleLabel->setStyleSheet("QLabel { font-weight: bold; font-size: 14px; color: palette(text); }");
+        titleLabel->setWordWrap(true);
+        
+        // Date label
+        QLabel* dateLabel = new QLabel(entry.dateCreated.toString("MMM dd, yyyy - hh:mm"));
+        dateLabel->setStyleSheet("QLabel { font-size: 11px; color: palette(dark); }");
+        
+        itemLayout->addWidget(titleLabel);
+        itemLayout->addWidget(dateLabel);
+        
+        // Set the item size and data
+        item->setSizeHint(QSize(0, 60));
+        item->setData(Qt::UserRole, entry.id);
+        
+        // Add item to list and set custom widget
+        m_logbookEntryList->addItem(item);
+        m_logbookEntryList->setItemWidget(item, itemWidget);
+    }
+    
+    qDebug() << "Updated logbook entry list with" << entries.size() << "entries";
+}
+
+void MainWindow::displayLogbookEntry(const QString& entryId)
+{
+    if (entryId.isEmpty() || !m_logbookManager) {
+        clearLogbookDisplay();
+        return;
+    }
+    
+    LogbookEntry entry = m_logbookManager->getEntry(entryId);
+    if (entry.id.isEmpty()) {
+        qDebug() << "Entry not found for ID:" << entryId;
+        clearLogbookDisplay();
+        return;
+    }
+    
+    // Update title and dates
+    m_logbookEntryTitle->setText(entry.title.isEmpty() ? "Untitled Entry" : entry.title);
+    
+    QString dateText = QString("Created: %1").arg(entry.dateCreated.toString("MMM dd, yyyy hh:mm"));
+    if (entry.dateModified != entry.dateCreated) {
+        dateText += QString("\nModified: %1").arg(entry.dateModified.toString("MMM dd, yyyy hh:mm"));
+    }
+    m_logbookEntryDates->setText(dateText);
+    
+    // Update content
+    m_logbookContentDisplay->setPlainText(entry.content);
+    
+    // Clear and update images
+    clearLogbookImagesDisplay();
+    
+    int imageIndex = 0;
+    const int imagesPerRow = 3;
+    
+    for (const QString& imagePath : entry.imagePaths) {
+        if (QFile::exists(imagePath)) {
+            QLabel* imageLabel = new QLabel();
+            imageLabel->setStyleSheet("border: 1px solid palette(mid); border-radius: 4px;");
+            imageLabel->setAlignment(Qt::AlignCenter);
+            imageLabel->setFixedSize(120, 90);
+            imageLabel->setScaledContents(true);
+            
+            QPixmap pixmap(imagePath);
+            if (!pixmap.isNull()) {
+                imageLabel->setPixmap(pixmap);
+            } else {
+                imageLabel->setText("Image\nNot Found");
+                imageLabel->setStyleSheet("border: 1px solid red; color: red; text-align: center;");
+            }
+            
+            int row = imageIndex / imagesPerRow;
+            int col = imageIndex % imagesPerRow;
+            
+            m_logbookImagesLayout->addWidget(imageLabel, row, col);
+            imageIndex++;
+        }
+    }
+    
+    qDebug() << "Displayed logbook entry:" << entry.title;
+}
+
+void MainWindow::clearLogbookDisplay()
+{
+    if (m_logbookEntryTitle) {
+        m_logbookEntryTitle->setText("Select an entry to view");
+    }
+    if (m_logbookEntryDates) {
+        m_logbookEntryDates->setText("");
+    }
+    if (m_logbookContentDisplay) {
+        m_logbookContentDisplay->clear();
+        m_logbookContentDisplay->setPlaceholderText("Select an entry to view its content...");
+    }
+    
+    clearLogbookImagesDisplay();
+    
+    // Disable action buttons
+    if (m_editLogbookEntryButton) {
+        m_editLogbookEntryButton->setEnabled(false);
+    }
+    if (m_deleteLogbookEntryButton) {
+        m_deleteLogbookEntryButton->setEnabled(false);
+    }
+}
+
+void MainWindow::clearLogbookImagesDisplay()
+{
+    if (!m_logbookImagesLayout) {
+        return;
+    }
+    
+    // Clear all widgets from the images layout
+    while (QLayoutItem* item = m_logbookImagesLayout->takeAt(0)) {
+        if (QWidget* widget = item->widget()) {
+            widget->deleteLater();
+        }
+        delete item;
+    }
+}
+
 void MainWindow::resizeEvent(QResizeEvent* event)
 {
     QMainWindow::resizeEvent(event);
+    
+    // Keep login page sized properly if it's visible
+    if (m_loginPage && m_loginPage->isVisible()) {
+        m_loginPage->setGeometry(0, 0, width(), height());
+    }
+    
+    // DEBUG: Track layout elements during resize
+    if (ui->settings_button && ui->notification_button) {
+        QSpacerItem* verticalSpacer = nullptr;
+        
+        // Find the spacer by searching through the Tab layout
+        if (ui->Tab) {
+            QVBoxLayout* tabLayout = qobject_cast<QVBoxLayout*>(ui->Tab->layout());
+            if (tabLayout) {
+                for (int i = 0; i < tabLayout->count(); ++i) {
+                    QLayoutItem* item = tabLayout->itemAt(i);
+                    if (item && item->spacerItem()) {
+                        verticalSpacer = item->spacerItem();
+                        break;
+                    }
+                }
+            }
+        }
+        
+        qDebug() << "=== RESIZE EVENT DEBUG ===";
+        qDebug() << "Window size:" << event->size().width() << "x" << event->size().height();
+        qDebug() << "Settings button position:" << ui->settings_button->pos() << "size:" << ui->settings_button->size();
+        qDebug() << "Settings button geometry:" << ui->settings_button->geometry();
+        qDebug() << "Notification button position:" << ui->notification_button->pos() << "size:" << ui->notification_button->size();
+        qDebug() << "Notification button geometry:" << ui->notification_button->geometry();
+        
+        if (verticalSpacer) {
+            qDebug() << "Vertical spacer size hint:" << verticalSpacer->sizeHint();
+            qDebug() << "Vertical spacer minimum size:" << verticalSpacer->minimumSize();
+            qDebug() << "Vertical spacer maximum size:" << verticalSpacer->maximumSize();
+            qDebug() << "Vertical spacer geometry:" << verticalSpacer->geometry();
+        } else {
+            qDebug() << "Vertical spacer not found!";
+        }
+        
+        // Check Tab frame geometry
+        if (ui->Tab) {
+            qDebug() << "Tab frame geometry:" << ui->Tab->geometry();
+        }
+        
+        // Check if settings button is cut off
+        int settingsBottom = ui->settings_button->pos().y() + ui->settings_button->height();
+        int windowHeight = height();
+        bool isCutOff = settingsBottom > windowHeight;
+        qDebug() << "Settings bottom Y:" << settingsBottom << "Window height:" << windowHeight << "Cut off:" << isCutOff;
+        qDebug() << "=========================";
+    }
     
     // Start/restart the resize timer to avoid too frequent updates
     if (m_resizeTimer) {
@@ -719,6 +1660,13 @@ void MainWindow::onResizeTimeout()
             m_plantsScrollArea->updateGeometry();
         }
         updatePlantGrid();
+    }
+    
+    // Update logbook scroll areas when window resize is complete
+    if (m_logbookEntryList) {
+        if (m_logbookImagesArea) {
+            m_logbookImagesArea->updateGeometry();
+        }
     }
 }
 
@@ -766,6 +1714,12 @@ void MainWindow::updateScrollAreaTheme()
 
 void MainWindow::setupResponsiveLayout()
 {
+    // Don't recreate layout if it already exists
+    if (ui->centralwidget->layout()) {
+        qDebug() << "Layout already exists, skipping setup";
+        return;
+    }
+    
     // Create a main horizontal layout for the central widget
     QHBoxLayout* mainLayout = new QHBoxLayout(ui->centralwidget);
     mainLayout->setContentsMargins(0, 0, 0, 0);
@@ -831,15 +1785,638 @@ void MainWindow::updateAllPlantCardsEnvironmentalData()
 
 bool MainWindow::eventFilter(QObject* object, QEvent* event)
 {
-    // Handle scroll area resize events
-    if (object == m_plantsScrollArea && event->type() == QEvent::Resize) {
-        // Start the resize timer when scroll area is resized
-        if (m_resizeTimer) {
-            m_resizeTimer->start();
+    // Handle scroll area resize events for both plants and logbook
+    if (event->type() == QEvent::Resize) {
+        if (object == m_plantsScrollArea || object == m_logbookImagesArea) {
+            // Start the resize timer when any monitored scroll area is resized
+            if (m_resizeTimer) {
+                m_resizeTimer->start();
+            }
         }
     }
 
     return QMainWindow::eventFilter(object, event);
+}
+
+void MainWindow::adjustTabLayout()
+{
+    // No longer needed - spacer behavior is controlled through UI configuration
+}
+
+void MainWindow::onSettingsClicked()
+{
+    showSettingsDialog();
+}
+
+void MainWindow::onLogoutClicked()
+{
+    // Save current user's data
+    if (m_plantManager) {
+        m_plantManager->savePlantsToFile();
+    }
+    
+    // Save logbook data
+    if (m_logbookManager) {
+        m_logbookManager->saveToFile();
+    }
+    
+    // Clear plant cards and grid
+    clearPlantGrid();
+    
+    // Clear current user data
+    if (m_plantManager) {
+        delete m_plantManager;
+        m_plantManager = nullptr;
+    }
+    
+    // Clear plant UI components - they will be recreated on next login
+    m_plantCards.clear();
+    
+    // Clear logbook UI components
+    clearLogbookDisplay();
+    m_selectedLogbookEntryId.clear();
+    
+    // Reset logbook UI pointers to prevent stale references
+    m_logbookEntryList = nullptr;
+    m_logbookContentDisplay = nullptr;
+    m_logbookImagesArea = nullptr;
+    m_logbookImagesContainer = nullptr;
+    m_logbookImagesLayout = nullptr;
+    m_addLogbookEntryButton = nullptr;
+    m_editLogbookEntryButton = nullptr;
+    m_deleteLogbookEntryButton = nullptr;
+    m_logbookEntryTitle = nullptr;
+    m_logbookEntryDates = nullptr;
+    
+    // Clear notifications
+    m_notifications.clear();
+    if (m_notificationBadge) {
+        m_notificationBadge->hide();
+    }
+    
+    // Reset environmental data
+    m_currentTemp = 0.0;
+    m_currentHumidity = 0.0;
+    m_currentUV = 0.0;
+    
+    // Important: Clear the existing layout from PlantUI to ensure clean state
+    QWidget* myPlantsPage = ui->stackedWidget->widget(0);
+    if (myPlantsPage && myPlantsPage->layout()) {
+        delete myPlantsPage->layout();
+    }
+    
+    // Clear logbook page layout
+    QWidget* logbookPage = ui->stackedWidget->widget(1);
+    if (logbookPage && logbookPage->layout()) {
+        delete logbookPage->layout();
+    }
+    
+    // Clear the central widget layout to ensure clean state for next login
+    if (ui->centralwidget->layout()) {
+        delete ui->centralwidget->layout();
+        
+        // Reset the widgets to their original parent
+        ui->Tab->setParent(ui->centralwidget);
+        ui->PlantUI->setParent(ui->centralwidget);
+        ui->Conditions->setParent(ui->centralwidget);
+    }
+    
+    // Hide main interface and show login page
+    m_mainInterface->hide();
+    
+    // Reset login form
+    m_usernameEdit->clear();
+    m_passwordEdit->clear();
+    m_confirmPasswordEdit->clear();
+    m_statusLabel->setText("");
+    m_statusLabel->setStyleSheet("QLabel { font-size: 12px; color: transparent; }");
+    m_isRegisterMode = false;
+    m_confirmLabel->hide();
+    m_confirmPasswordEdit->hide();
+    m_registerButton->setText("Register");
+    m_loginButton->setText("Login");
+    
+    // Show login page
+    m_loginPage->setGeometry(0, 0, width(), height());
+    m_loginPage->show();
+    m_loginPage->raise();
+}
+
+void MainWindow::showSettingsDialog()
+{
+    QDialog* settingsDialog = new QDialog(this);
+    settingsDialog->setWindowTitle("Settings");
+    settingsDialog->setModal(true);
+    settingsDialog->setFixedSize(300, 200);
+    
+    QVBoxLayout* layout = new QVBoxLayout(settingsDialog);
+    layout->setSpacing(20);
+    layout->setContentsMargins(20, 20, 20, 20);
+    
+    // Volume control section
+    QLabel* volumeLabel = new QLabel("Volume", settingsDialog);
+    volumeLabel->setStyleSheet("QLabel { font-size: 14px; font-weight: bold; }");
+    layout->addWidget(volumeLabel);
+    
+    QSlider* volumeSlider = new QSlider(Qt::Horizontal, settingsDialog);
+    volumeSlider->setRange(0, 100);
+    volumeSlider->setValue(m_currentVolume); // Use current user's volume
+    volumeSlider->setStyleSheet(
+        "QSlider::groove:horizontal {"
+        "    border: 1px solid #999999;"
+        "    height: 8px;"
+        "    background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #B1B1B1, stop:1 #c4c4c4);"
+        "    margin: 2px 0;"
+        "    border-radius: 4px;"
+        "}"
+        "QSlider::handle:horizontal {"
+        "    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #b4b4b4, stop:1 #8f8f8f);"
+        "    border: 1px solid #5c5c5c;"
+        "    width: 18px;"
+        "    margin: -2px 0;"
+        "    border-radius: 9px;"
+        "}"
+        "QSlider::handle:horizontal:hover {"
+        "    background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #d4d4d4, stop:1 #afafaf);"
+        "}"
+    );
+    layout->addWidget(volumeSlider);
+    
+    // Volume value label
+    QLabel* volumeValueLabel = new QLabel(QString("%1%").arg(m_currentVolume), settingsDialog);
+    volumeValueLabel->setAlignment(Qt::AlignCenter);
+    volumeValueLabel->setStyleSheet("QLabel { font-size: 12px; color: #666666; }");
+    layout->addWidget(volumeValueLabel);
+    
+    // Connect volume slider to update the label and save volume
+    connect(volumeSlider, &QSlider::valueChanged, [this, volumeValueLabel](int value) {
+        volumeValueLabel->setText(QString("%1%").arg(value));
+        m_currentVolume = value;
+        if (m_userManager) {
+            m_userManager->setUserVolume(value);
+        }
+    });
+    
+    // Add spacer
+    layout->addStretch();
+    
+    // Logout button
+    QPushButton* logoutButton = new QPushButton("Logout", settingsDialog);
+    logoutButton->setStyleSheet(
+        "QPushButton {"
+        "    background-color: #dc3545;"
+        "    color: white;"
+        "    padding: 10px 20px;"
+        "    border: none;"
+        "    border-radius: 4px;"
+        "    font-size: 14px;"
+        "    font-weight: bold;"
+        "}"
+        "QPushButton:hover {"
+        "    background-color: #c82333;"
+        "}"
+        "QPushButton:pressed {"
+        "    background-color: #bd2130;"
+        "}"
+    );
+    
+    connect(logoutButton, &QPushButton::clicked, [this, settingsDialog]() {
+        settingsDialog->accept();
+        onLogoutClicked();
+    });
+    
+    layout->addWidget(logoutButton);
+    
+    // Show the dialog
+    settingsDialog->exec();
+    settingsDialog->deleteLater();
+}
+
+void MainWindow::setupNotificationButton()
+{
+    // Check if already set up to prevent duplicate connections
+    if (m_notificationBadge) {
+        return;
+    }
+    
+    // Create notification badge label
+    m_notificationBadge = new QLabel(ui->notification_button);
+    // Position badge in top-right corner of 40px button: x=22 (40-18), y=2, width=18, height=18
+    m_notificationBadge->setGeometry(22, 2, 18, 18);
+    m_notificationBadge->setStyleSheet(
+        "QLabel {"
+        "    background-color: #dc3545;"
+        "    color: white;"
+        "    border-radius: 9px;"
+        "    font-size: 9px;"
+        "    font-weight: bold;"
+        "    text-align: center;"
+        "}"
+    );
+    m_notificationBadge->setAlignment(Qt::AlignCenter);
+    m_notificationBadge->hide(); // Initially hidden
+    
+    // Initialize audio for notifications
+    if (!m_audioOutput) {
+        qDebug() << "Initializing notification audio system";
+        m_audioOutput = new QAudioOutput(this);
+        m_notificationSound = new QMediaPlayer(this);
+        m_notificationSound->setAudioOutput(m_audioOutput);
+        
+        // Use the correct resource path based on our resources.qrc structure
+        QUrl audioUrl("qrc:/notification.wav");
+        qDebug() << "Setting audio source to:" << audioUrl.toString();
+        
+        // Check if the resource exists using different formats
+        QFile resourceFile1(":/notification.wav");
+        QFile resourceFile2("qrc:/notification.wav");
+        qDebug() << "Audio resource exists (:/notification.wav):" << resourceFile1.exists();
+        qDebug() << "Audio resource exists (qrc:/notification.wav):" << resourceFile2.exists();
+        
+        // Connect to error and status signals for debugging
+        connect(m_notificationSound, &QMediaPlayer::errorOccurred, this, [](QMediaPlayer::Error error, const QString &errorString) {
+            qDebug() << "QMediaPlayer error:" << error << errorString;
+        });
+        
+        connect(m_notificationSound, &QMediaPlayer::mediaStatusChanged, this, [this](QMediaPlayer::MediaStatus status) {
+            qDebug() << "QMediaPlayer status changed:" << status;
+            if (status == QMediaPlayer::LoadedMedia) {
+                qDebug() << "Media successfully loaded, duration:" << m_notificationSound->duration();
+            } else if (status == QMediaPlayer::InvalidMedia) {
+                qDebug() << "Invalid media - checking resource path";
+                qDebug() << "Current source:" << m_notificationSound->source().toString();
+            }
+        });
+        
+        // Set the source and try to load it
+        m_notificationSound->setSource(audioUrl);
+        qDebug() << "Audio source set, initial status:" << m_notificationSound->mediaStatus();
+    }
+    
+    // Connect notification button
+    connect(ui->notification_button, &QPushButton::clicked, this, &MainWindow::onNotificationsClicked);
+}
+
+void MainWindow::onNotificationsClicked()
+{
+    showNotificationsDialog();
+    // Mark all notifications as read
+    for (auto& notification : m_notifications) {
+        notification.isRead = true;
+    }
+    updateNotificationBadge();
+}
+
+void MainWindow::addNotification(const QString& message)
+{
+    qDebug() << "Adding notification:" << message;
+    m_notifications.append(NotificationItem(message));
+    updateNotificationBadge();
+    playNotificationSound();
+}
+
+void MainWindow::updateNotificationBadge()
+{
+    // Count unread notifications
+    int unreadCount = 0;
+    for (const auto& notification : m_notifications) {
+        if (!notification.isRead) {
+            unreadCount++;
+        }
+    }
+    
+    if (unreadCount > 0) {
+        m_notificationBadge->setText(QString::number(unreadCount));
+        m_notificationBadge->show();
+    } else {
+        m_notificationBadge->hide();
+    }
+}
+
+void MainWindow::showNotificationsDialog()
+{
+    QDialog* notificationDialog = new QDialog(this);
+    notificationDialog->setWindowTitle("Plant Notifications");
+    notificationDialog->setModal(true);
+    notificationDialog->setFixedSize(500, 600);
+    
+    QVBoxLayout* layout = new QVBoxLayout(notificationDialog);
+    layout->setSpacing(10);
+    layout->setContentsMargins(20, 20, 20, 20);
+    
+    QLabel* titleLabel = new QLabel("Plant Notifications", notificationDialog);
+    titleLabel->setStyleSheet("QLabel { font-size: 18px; font-weight: bold; }");
+    layout->addWidget(titleLabel);
+    
+    // Always create tab widget for unread/read sections
+    QTabWidget* tabWidget = new QTabWidget(notificationDialog);
+    
+    // Separate notifications into unread and read
+    QList<NotificationItem> unreadNotifications;
+    QList<NotificationItem> readNotifications;
+    
+    for (const auto& notification : m_notifications) {
+        if (notification.isRead) {
+            readNotifications.append(notification);
+        } else {
+            unreadNotifications.append(notification);
+        }
+    }
+        
+        // Create unread tab
+        QWidget* unreadWidget = new QWidget();
+        QVBoxLayout* unreadLayout = new QVBoxLayout(unreadWidget);
+        QScrollArea* unreadScrollArea = new QScrollArea();
+        QWidget* unreadContentWidget = new QWidget();
+        QVBoxLayout* unreadContentLayout = new QVBoxLayout(unreadContentWidget);
+        
+        if (unreadNotifications.isEmpty()) {
+            QLabel* noUnreadLabel = new QLabel("No unread notifications");
+            noUnreadLabel->setAlignment(Qt::AlignCenter);
+            noUnreadLabel->setStyleSheet("QLabel { font-style: italic; padding: 20px; }");
+            unreadContentLayout->addWidget(noUnreadLabel);
+        } else {
+            for (const auto& notification : unreadNotifications) {
+                QWidget* notificationWidget = new QWidget();
+                notificationWidget->setMinimumHeight(40); // Set minimum height, allow expansion
+                QHBoxLayout* notificationLayout = new QHBoxLayout(notificationWidget);
+                
+                QLabel* messageLabel = new QLabel(notification.message);
+                messageLabel->setWordWrap(true);
+                messageLabel->setStyleSheet("QLabel { font-weight: bold; }");
+                messageLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+                
+                QLabel* timestampLabel = new QLabel(notification.timestamp.toString("MMM dd hh:mm"));
+                timestampLabel->setStyleSheet("QLabel { font-size: 10px; color: palette(dark); }");
+                timestampLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+                timestampLabel->setAlignment(Qt::AlignTop); // Align timestamp to top for multi-line messages
+                
+                notificationLayout->addWidget(messageLabel);
+                notificationLayout->addWidget(timestampLabel);
+                notificationLayout->setContentsMargins(8, 4, 8, 4);
+                notificationLayout->setSpacing(10);
+                
+                notificationWidget->setStyleSheet(
+                    "QWidget {"
+                    "    padding: 4px 8px;"
+                    "    border: 1px solid palette(mid);"
+                    "    border-radius: 3px;"
+                    "    background-color: palette(alternate-base);"
+                    "    margin-bottom: 2px;"
+                    "}"
+                );
+                
+                unreadContentLayout->addWidget(notificationWidget);
+            }
+        }
+        
+        // Add stretch to push notifications to top
+        unreadContentLayout->addStretch();
+        
+        unreadScrollArea->setWidget(unreadContentWidget);
+        unreadScrollArea->setWidgetResizable(true);
+        unreadLayout->addWidget(unreadScrollArea);
+        
+        // Create read tab
+        QWidget* readWidget = new QWidget();
+        QVBoxLayout* readLayout = new QVBoxLayout(readWidget);
+        QScrollArea* readScrollArea = new QScrollArea();
+        QWidget* readContentWidget = new QWidget();
+        QVBoxLayout* readContentLayout = new QVBoxLayout(readContentWidget);
+        
+        if (readNotifications.isEmpty()) {
+            QLabel* noReadLabel = new QLabel("No read notifications");
+            noReadLabel->setAlignment(Qt::AlignCenter);
+            noReadLabel->setStyleSheet("QLabel { font-style: italic; padding: 20px; }");
+            readContentLayout->addWidget(noReadLabel);
+        } else {
+            for (const auto& notification : readNotifications) {
+                QWidget* notificationWidget = new QWidget();
+                notificationWidget->setMinimumHeight(40); // Set minimum height, allow expansion
+                QHBoxLayout* notificationLayout = new QHBoxLayout(notificationWidget);
+                
+                QLabel* messageLabel = new QLabel(notification.message);
+                messageLabel->setWordWrap(true);
+                messageLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+                
+                QLabel* timestampLabel = new QLabel(notification.timestamp.toString("MMM dd hh:mm"));
+                timestampLabel->setStyleSheet("QLabel { font-size: 10px; color: palette(dark); }");
+                timestampLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+                timestampLabel->setAlignment(Qt::AlignTop); // Align timestamp to top for multi-line messages
+                
+                notificationLayout->addWidget(messageLabel);
+                notificationLayout->addWidget(timestampLabel);
+                notificationLayout->setContentsMargins(8, 4, 8, 4);
+                notificationLayout->setSpacing(10);
+                
+                notificationWidget->setStyleSheet(
+                    "QWidget {"
+                    "    padding: 4px 8px;"
+                    "    border: 1px solid palette(mid);"
+                    "    border-radius: 3px;"
+                    "    background-color: palette(base);"
+                    "    margin-bottom: 2px;"
+                    "}"
+                );
+                
+                readContentLayout->addWidget(notificationWidget);
+            }
+        }
+        
+        // Add stretch to push notifications to top
+        readContentLayout->addStretch();
+        
+        readScrollArea->setWidget(readContentWidget);
+        readScrollArea->setWidgetResizable(true);
+        readLayout->addWidget(readScrollArea);
+        
+        // Add tabs to tab widget
+        tabWidget->addTab(unreadWidget, QString("Unread (%1)").arg(unreadNotifications.size()));
+        tabWidget->addTab(readWidget, QString("Read (%1)").arg(readNotifications.size()));
+        
+        layout->addWidget(tabWidget);
+    
+    // Buttons layout
+    QHBoxLayout* buttonLayout = new QHBoxLayout();
+    
+    QPushButton* clearAllButton = new QPushButton("Clear All", notificationDialog);
+    clearAllButton->setStyleSheet(
+        "QPushButton {"
+        "    padding: 10px 20px;"
+        "    border: 1px solid palette(mid);"
+        "    border-radius: 4px;"
+        "    font-size: 14px;"
+        "}"
+        "QPushButton:hover {"
+        "    background-color: palette(highlight);"
+        "    color: palette(highlighted-text);"
+        "}"
+    );
+    
+    QPushButton* closeButton = new QPushButton("Close", notificationDialog);
+    closeButton->setStyleSheet(
+        "QPushButton {"
+        "    padding: 10px 20px;"
+        "    border: 1px solid palette(mid);"
+        "    border-radius: 4px;"
+        "    font-size: 14px;"
+        "}"
+        "QPushButton:hover {"
+        "    background-color: palette(highlight);"
+        "    color: palette(highlighted-text);"
+        "}"
+    );
+    
+    connect(clearAllButton, &QPushButton::clicked, [this, notificationDialog]() {
+        m_notifications.clear();
+        updateNotificationBadge();
+        notificationDialog->accept();
+    });
+    
+    connect(closeButton, &QPushButton::clicked, notificationDialog, &QDialog::accept);
+    
+    buttonLayout->addWidget(clearAllButton);
+    buttonLayout->addStretch();
+    buttonLayout->addWidget(closeButton);
+    
+    layout->addLayout(buttonLayout);
+    
+    notificationDialog->exec();
+    notificationDialog->deleteLater();
+}
+
+void MainWindow::playNotificationSound()
+{
+    qDebug() << "playNotificationSound called - Volume:" << m_currentVolume 
+             << "Sound object:" << (m_notificationSound != nullptr)
+             << "Audio object:" << (m_audioOutput != nullptr);
+             
+    if (m_currentVolume == 0) {
+        qDebug() << "Volume is 0, not playing sound";
+        return;
+    }
+             
+    if (m_notificationSound && m_audioOutput) {
+        // Set volume based on user preference (0-100 to 0.0-1.0)
+        qreal volume = m_currentVolume / 100.0;
+        m_audioOutput->setVolume(volume);
+        qDebug() << "Playing notification sound with volume:" << volume;
+        qDebug() << "QMediaPlayer state:" << m_notificationSound->playbackState();
+        qDebug() << "QMediaPlayer status:" << m_notificationSound->mediaStatus();
+        
+        // Check if media is loaded, if not try to load it
+        if (m_notificationSound->mediaStatus() == QMediaPlayer::InvalidMedia || 
+            m_notificationSound->mediaStatus() == QMediaPlayer::NoMedia) {
+            qDebug() << "Media not loaded, trying to reload with correct resource path...";
+            // Use the correct resource path that matches our resources.qrc
+            QUrl audioUrl("qrc:/notification.wav");
+            qDebug() << "Reloading audio source:" << audioUrl.toString();
+            m_notificationSound->setSource(audioUrl);
+            
+            // Wait a moment for loading and then try to play
+            QTimer::singleShot(300, this, [this]() {
+                qDebug() << "After reload - QMediaPlayer status:" << m_notificationSound->mediaStatus();
+                qDebug() << "After reload - QMediaPlayer source:" << m_notificationSound->source().toString();
+                if (m_notificationSound->mediaStatus() == QMediaPlayer::LoadedMedia) {
+                    qDebug() << "Media loaded successfully, playing...";
+                    m_notificationSound->play();
+                } else {
+                    qDebug() << "Media still not loaded after reload, using system beep";
+                    QApplication::beep();
+                }
+            });
+        } else if (m_notificationSound->mediaStatus() == QMediaPlayer::LoadedMedia) {
+            qDebug() << "Media already loaded, playing directly...";
+            m_notificationSound->play();
+        } else {
+            qDebug() << "Media status:" << m_notificationSound->mediaStatus() << ", trying to play anyway";
+            m_notificationSound->play();
+            
+            // If it doesn't start playing within 200ms, fall back to system beep
+            QTimer::singleShot(200, this, [this]() {
+                if (m_notificationSound->playbackState() != QMediaPlayer::PlayingState) {
+                    qDebug() << "QMediaPlayer failed to play, falling back to system beep";
+                    QApplication::beep();
+                }
+            });
+        }
+    } else {
+        qDebug() << "Audio objects not available, using system beep";
+        QApplication::beep();
+    }
+}
+
+void MainWindow::checkPlantConditions()
+{
+    if (!m_plantManager) return;
+    
+    int plantCount = m_plantManager->getPlantCount();
+    for (int i = 0; i < plantCount; ++i) {
+        PlantData plant = m_plantManager->getPlant(i);
+        
+        // Check temperature
+        if (m_currentTemp > 0) {
+            QString tempKey = QString("%1_temp").arg(plant.name);
+            if (m_currentTemp < plant.tempRangeLow) {
+                QString tempLowKey = tempKey + "_low";
+                if (!m_sentNotifications.contains(tempLowKey)) {
+                    addNotification(QString("%1 temperature too low (%2°F < %3°F)")
+                        .arg(plant.name).arg(m_currentTemp, 0, 'f', 1).arg(plant.tempRangeLow, 0, 'f', 1));
+                    m_sentNotifications.insert(tempLowKey);
+                }
+            } else if (m_currentTemp > plant.tempRangeHigh) {
+                QString tempHighKey = tempKey + "_high";
+                if (!m_sentNotifications.contains(tempHighKey)) {
+                    addNotification(QString("%1 temperature too high (%2°F > %3°F)")
+                        .arg(plant.name).arg(m_currentTemp, 0, 'f', 1).arg(plant.tempRangeHigh, 0, 'f', 1));
+                    m_sentNotifications.insert(tempHighKey);
+                }
+            } else {
+                // Temperature is in range, clear notifications for this plant
+                m_sentNotifications.remove(tempKey + "_low");
+                m_sentNotifications.remove(tempKey + "_high");
+            }
+        }
+        
+        // Check humidity
+        if (m_currentHumidity > 0) {
+            QString humidityKey = QString("%1_humidity").arg(plant.name);
+            if (m_currentHumidity < plant.humidityRangeLow) {
+                QString humidityLowKey = humidityKey + "_low";
+                if (!m_sentNotifications.contains(humidityLowKey)) {
+                    addNotification(QString("%1 humidity too low (%2% < %3%)")
+                        .arg(plant.name).arg(m_currentHumidity, 0, 'f', 1).arg(plant.humidityRangeLow, 0, 'f', 1));
+                    m_sentNotifications.insert(humidityLowKey);
+                }
+            } else if (m_currentHumidity > plant.humidityRangeHigh) {
+                QString humidityHighKey = humidityKey + "_high";
+                if (!m_sentNotifications.contains(humidityHighKey)) {
+                    addNotification(QString("%1 humidity too high (%2% > %3%)")
+                        .arg(plant.name).arg(m_currentHumidity, 0, 'f', 1).arg(plant.humidityRangeHigh, 0, 'f', 1));
+                    m_sentNotifications.insert(humidityHighKey);
+                }
+            } else {
+                // Humidity is in range, clear notifications for this plant
+                m_sentNotifications.remove(humidityKey + "_low");
+                m_sentNotifications.remove(humidityKey + "_high");
+            }
+        }
+        
+        // Check UV
+        if (m_currentUV > 0) {
+            QString uvKey = QString("%1_uv_low").arg(plant.name);
+            if (m_currentUV < plant.uvRangeLow) {
+                if (!m_sentNotifications.contains(uvKey)) {
+                    addNotification(QString("%1 UV level too low (%2 < %3)")
+                        .arg(plant.name).arg(m_currentUV, 0, 'f', 1).arg(plant.uvRangeLow, 0, 'f', 1));
+                    m_sentNotifications.insert(uvKey);
+                }
+            } else {
+                // UV is in range, clear notification for this plant
+                m_sentNotifications.remove(uvKey);
+            }
+        }
+    }
 }
 
 
