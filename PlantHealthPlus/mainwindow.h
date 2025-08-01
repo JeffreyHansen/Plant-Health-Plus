@@ -87,6 +87,7 @@ private slots:
     void onNotificationsClicked();
     void checkPlantConditions();
     void addNotification(const QString& message);
+    void handleForecastNotification(const QList<DayForecast> &forecasts);
     
     // Logbook slots
     void onAddLogbookEntryClicked();
@@ -114,12 +115,10 @@ private:
     void showSettingsDialog();
     void setupNotificationButton();
     void updateNotificationBadge();
+    void updateForecastNotification();
     void showNotificationsDialog();
     void playNotificationSound();
-
-    QPushButton* m_tempButton;
-    QPushButton* m_uvButton;
-    QPushButton* m_humidityButton;
+    void checkForecastTemperature();
     
     // Logbook methods
     void setupLogbookPage();
@@ -138,7 +137,18 @@ protected:
     QButtonGroup *buttonGroup;
     QStackedWidget *stackedWidget;
 
+    // Condition and forecast-related components
     ConditionChart *conditionChart;
+    QPushButton* m_tempButton;
+    QPushButton* m_uvButton;
+    QPushButton* m_humidityButton;
+    ForecastClient *forecastClient;
+    QTimer *forecastTimer;
+
+    // Environmental data
+    double m_currentTemp = 0.0;
+    double m_currentHumidity = 0.0;
+    double m_currentUV = 0.0;
     
     // Plant management
     PlantManager* m_plantManager;
@@ -147,11 +157,6 @@ protected:
     QGridLayout* m_plantsGridLayout;
     QPushButton* m_addPlantButton;
     QVector<PlantCard*> m_plantCards;
-    
-    // Environmental data
-    double m_currentTemp = 0.0;
-    double m_currentHumidity = 0.0;
-    double m_currentUV = 0.0;
     
     // Login page components
     QWidget* m_loginPage;

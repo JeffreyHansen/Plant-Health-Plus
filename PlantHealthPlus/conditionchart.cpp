@@ -28,32 +28,64 @@ void ConditionChart::updateChart(const QList<DayForecast>& forecasts)
 }
 
 void ConditionChart::setTemperatureChart(const QList<DayForecast> &data) {
+    // Clear existing chart elements
     chart()->removeAllSeries();
     const auto axes = chart()->axes();
     for (QAbstractAxis* axis : axes) {
         chart()->removeAxis(axis);
     }
 
+    // Create high temperature bar set
     QBarSet *highSet = new QBarSet("High Temp");
-    QBarSet *lowSet = new QBarSet("Low Temp");
-    QStringList categories;
+    highSet->setColor(QColor(QColorConstants::Svg::orangered));
+    highSet->setPen(QPen(Qt::black));
+    highSet->setPen(QPen(QColor(0x333333), 2));
 
+    // Tooltip for high temps
+    connect(highSet, &QBarSet::hovered, this, [=](bool status, int index) {
+        if (status) {
+            QToolTip::showText(QCursor::pos(), QString("High: %1°").arg(highSet->at(index)));
+        } else {
+            QToolTip::hideText();
+        }
+    });
+
+    // Create low temperature bar set
+    QBarSet *lowSet = new QBarSet("Low Temp");
+    lowSet->setColor(QColor(QColorConstants::Svg::lightblue));
+    lowSet->setPen(QPen(Qt::black));
+    lowSet->setPen(QPen(QColor(0x333333), 2));
+
+    // Create low temperature bar set
+    connect(lowSet, &QBarSet::hovered, this, [=](bool status, int index) {
+        if (status) {
+            QToolTip::showText(QCursor::pos(), QString("Low: %1°").arg(lowSet->at(index)));
+        } else {
+            QToolTip::hideText();
+        }
+    });
+
+    // Populate data and categories
+    QStringList categories;
     for (const auto &day : data) {
         *highSet << day.highTemp;
         *lowSet << day.lowTemp;
         categories << day.dayName; // Ensure DayForecast has dayName
     }
 
+    // Create and configure series
     QBarSeries *series = new QBarSeries();
     series->append(highSet);
     series->append(lowSet);
     chart()->addSeries(series);
 
+    // Configure X axis (days)
     QBarCategoryAxis *axisX = new QBarCategoryAxis();
     axisX->append(categories);
     chart()->addAxis(axisX, Qt::AlignBottom);
     series->attachAxis(axisX);
 
+    // Calculate Y axis range with buffer
     int maxTemp = std::max_element(data.begin(), data.end(), [](const DayForecast &a, const DayForecast &b){
                       return a.highTemp < b.highTemp;
                   })->highTemp;
@@ -62,34 +94,52 @@ void ConditionChart::setTemperatureChart(const QList<DayForecast> &data) {
                       return a.lowTemp < b.lowTemp;
                   })->lowTemp;
 
+    // Configure Y axis (temperature)
     QValueAxis *axisY = new QValueAxis();
     axisY->setRange(minTemp - 5, maxTemp + 5);
     chart()->addAxis(axisY, Qt::AlignLeft);
     series->attachAxis(axisY);
-    chart()->setTitle("7-Day Temperature Forecast");
 
+    chart()->setTitle("7-Day Temperature Forecast");
     chart()->update();
 }
 
 void ConditionChart::setUVChart(const QList<DayForecast> &data) {
+    // Clear existing chart elements
     chart()->removeAllSeries();
     const auto axes = chart()->axes();
     for (QAbstractAxis* axis : axes) {
         chart()->removeAxis(axis);
     }
 
+     // Create UV bar set
     QBarSet *uvSet = new QBarSet("UV Index");
+    uvSet->setColor(QColor(QColorConstants::Svg::yellow));
+    uvSet->setPen(QPen(Qt::black));
+    uvSet->setPen(QPen(QColor(0x333333), 2));
+
+    // Tooltip for UV values
+    connect(uvSet, &QBarSet::hovered, this, [=](bool status, int index) {
+        if (status) {
+            QToolTip::showText(QCursor::pos(), QString("%1 out of 15").arg(uvSet->at(index)));
+        } else {
+            QToolTip::hideText();
+        }
+    });
+
+    // Populate data and categories
     QStringList categories;
     for (const auto &day : data) {
         *uvSet << day.UV;
         categories << day.dayName;
     }
 
+    // Populate data and categories
     QBarSeries *barSeries = new QBarSeries();
     barSeries->append(uvSet);
-
     chart()->addSeries(barSeries);
 
+    // Configure axes
     QBarCategoryAxis *axisX = new QBarCategoryAxis();
     axisX->append(categories);
     chart()->addAxis(axisX, Qt::AlignBottom);
@@ -108,15 +158,32 @@ void ConditionChart::setUVChart(const QList<DayForecast> &data) {
 }
 
 void ConditionChart::setHumidityChart(const QList<DayForecast> &data) {
+    // Clear existing chart elements
     chart()->removeAllSeries();
     const auto axes = chart()->axes();
     for (QAbstractAxis* axis : axes) {
         chart()->removeAxis(axis);
     }
 
+
+    // Create humidity bar set
     QBarSet *humiditySet = new QBarSet("Humidity");
+    humiditySet->setColor(QColor(QColorConstants::Svg::deepskyblue));
+    humiditySet->setPen(QPen(Qt::black));
+    humiditySet->setPen(QPen(QColor(0x333333), 2));
+
+    // Tooltip for humidity values
+    connect(humiditySet, &QBarSet::hovered, this, [=](bool status, int index) {
+        if (status) {
+            QToolTip::showText(QCursor::pos(), QString("%1%").arg(humiditySet->at(index)));
+        } else {
+            QToolTip::hideText();
+        }
+    });
+
     QStringList categories;
 
+    // Populate data and calculate humidity
     int maxHumidity = 0;
     for (const auto &day : data) {
         *humiditySet << day.humidity;
@@ -124,11 +191,13 @@ void ConditionChart::setHumidityChart(const QList<DayForecast> &data) {
         maxHumidity = std::max(maxHumidity, day.humidity);
     }
 
+    // Create and configure series
     QBarSeries *barSeries = new QBarSeries();
     barSeries->append(humiditySet);
-
     chart()->addSeries(barSeries);
 
+
+    // Configure axes
     QBarCategoryAxis *axisX = new QBarCategoryAxis();
     axisX->append(categories);
     chart()->addAxis(axisX, Qt::AlignBottom);
@@ -140,6 +209,5 @@ void ConditionChart::setHumidityChart(const QList<DayForecast> &data) {
     barSeries->attachAxis(axisY);
 
     chart()->setTitle("7-Day Humidity Forecast");
-
     chart()->update();
 }

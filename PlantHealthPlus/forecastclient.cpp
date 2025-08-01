@@ -21,6 +21,8 @@ ForecastClient::ForecastClient(QObject* parent) : QObject(parent) {
 
 void ForecastClient::getURL() {
     qDebug() << "ForecastClient: Starting to fetch weather forecast data...";
+
+    // Configure API endpoint and query parameters
     QUrl url("https://api.open-meteo.com/v1/forecast");
     QUrlQuery query;
     query.addQueryItem("latitude", "32.7157");
@@ -34,26 +36,30 @@ void ForecastClient::getURL() {
 }
 
 void ForecastClient::onAPIReply(QNetworkReply *reply) {
+    // Check for network errors
     if (reply->error() != QNetworkReply::NoError) {
         qDebug() << "Network error: " << reply->errorString();
         reply->deleteLater();
         return;
     }
 
+    // Read and parse JSON response
     QByteArray jsonData = reply->readAll();
     qDebug() << "Raw JSON reply:" << jsonData;
-
     reply->deleteLater();
 
+    // Validate JSON structure
     QJsonDocument doc = QJsonDocument::fromJson(jsonData);
     if (!doc.isObject()) {
         qDebug() << "Invalid JSON format.";
         return;
     }
 
+    // Validate JSON structure
     QJsonObject root = doc.object();
     QJsonObject daily = root["daily"].toObject();
 
+    // Parse arrays for each weather metric
     QJsonArray dates = daily["time"].toArray();
     QJsonArray tempsMax = daily["temperature_2m_max"].toArray();
     QJsonArray tempsMin = daily["temperature_2m_min"].toArray();
@@ -62,16 +68,19 @@ void ForecastClient::onAPIReply(QNetworkReply *reply) {
 
     QList<DayForecast> forecastList;
 
+    // Process all available days (using smallest array size as limit)
     int count = std::min({dates.size(), tempsMax.size(), tempsMin.size(), uvMax.size(), humidityMean.size()});
 
     for (int i = 0; i < count; i++) {
         DayForecast day;
 
+        // Parse date and day name
         QString dateStr = dates[i].toString();
         QDate date = QDate::fromString(dateStr, Qt::ISODate);
         day.date = date;
         day.dayName = date.toString("dddd");
 
+        // Convert and round weather metrics
         day.highTemp = qRound(tempsMax[i].toDouble());
         day.lowTemp = qRound(tempsMin[i].toDouble());
         day.UV = qRound(uvMax[i].toDouble());
@@ -80,6 +89,7 @@ void ForecastClient::onAPIReply(QNetworkReply *reply) {
         forecastList.append(day);
     }
 
+    // Signal completion
     emit forecastsReady(forecastList);
     qDebug() << "Emitting forecastsReady with" << forecastList.size() << "entries";
 }

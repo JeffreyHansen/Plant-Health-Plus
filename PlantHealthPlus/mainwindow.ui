@@ -125,6 +125,41 @@
       </spacer>
      </item>
      <item>
+      <widget class="QPushButton" name="notification_button">
+       <property name="minimumSize">
+        <size>
+         <width>30</width>
+         <height>30</height>
+        </size>
+       </property>
+       <property name="maximumSize">
+        <size>
+         <width>40</width>
+         <height>40</height>
+        </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true">background-image: url(:/images/images/notifications_icon.png);</string>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+       <property name="icon">
+        <iconset resource="images.qrc">
+         <normaloff>:/images/images/notifications_icon.png</normaloff>:/images/images/notifications_icon.png</iconset>
+       </property>
+       <property name="iconSize">
+        <size>
+         <width>32</width>
+         <height>32</height>
+        </size>
+       </property>
+       <property name="flat">
+        <bool>true</bool>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QPushButton" name="settings_button">
        <property name="minimumSize">
         <size>
@@ -137,6 +172,9 @@
          <width>40</width>
          <height>40</height>
         </size>
+       </property>
+       <property name="styleSheet">
+        <string notr="true"/>
        </property>
        <property name="text">
         <string/>
@@ -184,74 +222,18 @@
        <family>Verdana</family>
       </font>
      </property>
-     <widget class="QWidget" name="myplants_page">
-      <widget class="QLabel" name="myplants_title">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>591</width>
-         <height>31</height>
-        </rect>
-       </property>
-       <property name="text">
-        <string>My Plants</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignmentFlag::AlignCenter</set>
-       </property>
-      </widget>
-     </widget>
-     <widget class="QWidget" name="logbook_page">
-      <widget class="QLabel" name="logbook_title">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>591</width>
-         <height>31</height>
-        </rect>
-       </property>
-       <property name="text">
-        <string>Log Book</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignmentFlag::AlignCenter</set>
-       </property>
-      </widget>
-     </widget>
-     <widget class="QWidget" name="plantpedia_page">
-      <widget class="QLabel" name="plantpedia_title">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>591</width>
-         <height>31</height>
-        </rect>
-       </property>
-       <property name="font">
-        <font>
-         <family>Verdana</family>
-        </font>
-       </property>
-       <property name="text">
-        <string>Plantpedia</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignmentFlag::AlignCenter</set>
-       </property>
-      </widget>
-     </widget>
+     <widget class="QWidget" name="myplants_page"/>
+     <widget class="QWidget" name="logbook_page"/>
+     <widget class="QWidget" name="plantpedia_page"/>
     </widget>
    </widget>
    <widget class="QGroupBox" name="Conditions">
     <property name="geometry">
      <rect>
       <x>720</x>
-      <y>0</y>
+      <y>-1</y>
       <width>81</width>
-      <height>500</height>
+      <height>501</height>
      </rect>
     </property>
     <property name="title">
@@ -261,9 +243,9 @@
      <property name="geometry">
       <rect>
        <x>0</x>
-       <y>187</y>
+       <y>110</y>
        <width>81</width>
-       <height>21</height>
+       <height>41</height>
       </rect>
      </property>
      <property name="palette">
@@ -744,9 +726,11 @@
      </property>
      <property name="text">
       <string>0.0</string>
-
      </property>
-     <property name="rightMargin">
+     <property name="alignment">
+      <set>Qt::AlignmentFlag::AlignCenter</set>
+     </property>
+     <property name="rightMargin" stdset="0">
       <number>0</number>
      </property>
     </widget>
@@ -754,9 +738,9 @@
      <property name="geometry">
       <rect>
        <x>0</x>
-       <y>277</y>
+       <y>198</y>
        <width>81</width>
-       <height>121</height>
+       <height>141</height>
       </rect>
      </property>
      <property name="font">
@@ -777,9 +761,9 @@
      <property name="geometry">
       <rect>
        <x>0</x>
-       <y>441</y>
+       <y>362</y>
        <width>81</width>
-       <height>71</height>
+       <height>91</height>
       </rect>
      </property>
      <property name="font">
@@ -815,7 +799,9 @@
    <addaction name="menuPH"/>
   </widget>
  </widget>
- <resources/>
+ <resources>
+  <include location="images.qrc"/>
+ </resources>
  <connections/>
  <buttongroups>
   <buttongroup name="buttonGroup"/>
