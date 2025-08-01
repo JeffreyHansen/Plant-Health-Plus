@@ -36,6 +36,7 @@
 #include <algorithm>
 #include "plantcard.h"
 #include "plantmanager.h"
+#include "conditionchart.h"
 #include "addplantdialog.h"
 #include "usermanager.h"
 #include "logbookmanager.h"
@@ -77,6 +78,7 @@ private slots:
     void refreshPlantGrid();
     void onThemeChanged(Qt::ColorScheme colorScheme);
     void onResizeTimeout();
+    void onConditionClicked();
     void onLoginClicked();
     void onRegisterClicked();
     void togglePasswordVisibility();
@@ -85,6 +87,7 @@ private slots:
     void onNotificationsClicked();
     void checkPlantConditions();
     void addNotification(const QString& message);
+    void handleForecastNotification(const QList<DayForecast> &forecasts);
     
     // Logbook slots
     void onAddLogbookEntryClicked();
@@ -101,6 +104,7 @@ private:
     void showSuccessMessage(const QString& message);
     void showErrorMessage(const QString& message);
     void setupMyPlantsPage();
+    void setupConditionLayout();
     void updatePlantGrid();
     void clearPlantGrid();
     PlantCard* createPlantCard(const PlantData& plantData, int index);
@@ -111,8 +115,10 @@ private:
     void showSettingsDialog();
     void setupNotificationButton();
     void updateNotificationBadge();
+    void updateForecastNotification();
     void showNotificationsDialog();
     void playNotificationSound();
+    void checkForecastTemperature();
     
     // Logbook methods
     void setupLogbookPage();
@@ -130,6 +136,19 @@ protected:
     Ui::MainWindow *ui;
     QButtonGroup *buttonGroup;
     QStackedWidget *stackedWidget;
+
+    // Condition and forecast-related components
+    ConditionChart *conditionChart;
+    QPushButton* m_tempButton;
+    QPushButton* m_uvButton;
+    QPushButton* m_humidityButton;
+    ForecastClient *forecastClient;
+    QTimer *forecastTimer;
+
+    // Environmental data
+    double m_currentTemp = 0.0;
+    double m_currentHumidity = 0.0;
+    double m_currentUV = 0.0;
     
     // Plant management
     PlantManager* m_plantManager;
@@ -138,11 +157,6 @@ protected:
     QGridLayout* m_plantsGridLayout;
     QPushButton* m_addPlantButton;
     QVector<PlantCard*> m_plantCards;
-    
-    // Environmental data
-    double m_currentTemp = 0.0;
-    double m_currentHumidity = 0.0;
-    double m_currentUV = 0.0;
     
     // Login page components
     QWidget* m_loginPage;

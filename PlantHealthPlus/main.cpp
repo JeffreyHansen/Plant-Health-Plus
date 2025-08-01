@@ -1,7 +1,8 @@
-        #include "mainwindow.h"
+#include "mainwindow.h"
 #include <QApplication>
 #include <QSplashScreen>
 #include <QTimer>
+#include <QMessageBox>
 
 int main(int argc, char *argv[])
 {
@@ -15,13 +16,9 @@ int main(int argc, char *argv[])
     QSplashScreen *splash = new QSplashScreen(pix);
     splash->show();
 
-    splash->showMessage("Loaded modules");
-
     a.processEvents();
 
     MainWindow *w = new MainWindow;
-
-    splash->showMessage("Established connections");
 
     a.processEvents();
 

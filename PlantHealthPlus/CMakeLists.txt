@@ -12,6 +12,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
 find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 find_package(Qt6 COMPONENTS Network REQUIRED)
+find_package(Qt6 COMPONENTS Charts REQUIRED)
 find_package(Qt6 COMPONENTS Multimedia REQUIRED)
 
 set(PROJECT_SOURCES
@@ -29,6 +30,10 @@ set(PROJECT_SOURCES
         addplantdialog.h
         rangeindicator.cpp
         rangeindicator.h
+        conditionchart.cpp
+        conditionchart.h
+        forecastclient.cpp
+        forecastclient.h
         logindialog.cpp
         logindialog.h
         usermanager.cpp
@@ -68,6 +73,7 @@ endif()
 target_link_libraries(PlantHealthPlus PRIVATE 
 	Qt${QT_VERSION_MAJOR}::Widgets
         Qt6::Network
+        Qt6::Charts
         Qt6::Multimedia
 )
 
