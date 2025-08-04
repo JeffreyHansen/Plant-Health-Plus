@@ -171,7 +171,6 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-//Created Plantpedia for users to search up related info on their houseplant
 
 
 void MainWindow::setupMyPlantsPage()
