@@ -119,7 +119,7 @@ void ConditionChart::setUVChart(const QList<DayForecast> &data) {
     uvSet->setPen(QPen(QColor(0x333333), 2));
 
     // Tooltip for UV values
-    connect(uvSet, &QBarSet::hovered, this, [=](bool status, int index) {
+    connect(uvSet, &QBarSet::hovered, this, [uvSet](bool status, int index) {
         if (status) {
             QToolTip::showText(QCursor::pos(), QString("%1 out of 15").arg(uvSet->at(index)));
         } else {
