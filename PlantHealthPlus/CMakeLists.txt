@@ -92,9 +92,7 @@ target_link_libraries(PlantHealthPlus PRIVATE
 # If you are developing for iOS or macOS you should consider setting an
 # explicit, fixed bundle identifier manually though.
 if(APPLE)
-    if(DEFINED QT_VERSION AND QT_VERSION VERSION_LESS 6.1.0)
-        set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.PlantHealthPlus)
-    endif()
+    set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.planthealthplus.app)
 endif()
 
 set_target_properties(PlantHealthPlus PROPERTIES

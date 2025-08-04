@@ -10,7 +10,6 @@
 struct DayForecast {
     QString dayName;
 	QDate date;
-    QDate date;
     int highTemp;
 	int lowTemp;
 	int UV;
