@@ -173,7 +173,7 @@ void ConditionChart::setHumidityChart(const QList<DayForecast> &data) {
     humiditySet->setPen(QPen(QColor(0x333333), 2));
 
     // Tooltip for humidity values
-    connect(humiditySet, &QBarSet::hovered, this, [=](bool status, int index) {
+    connect(humiditySet, &QBarSet::hovered, this, [humiditySet, this](bool status, int index) {
         if (status) {
             QToolTip::showText(QCursor::pos(), QString("%1%").arg(humiditySet->at(index)));
         } else {
