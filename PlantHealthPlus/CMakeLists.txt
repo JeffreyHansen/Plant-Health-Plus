@@ -53,7 +53,6 @@ set(PROJECT_SOURCES
         logbookmanager.h
         logbookentrydialog.cpp
         logbookentrydialog.h
-        testrunner.cpp
         testrunner.h
 )
 
