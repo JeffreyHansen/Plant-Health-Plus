@@ -971,7 +971,13 @@ void MainWindow::setupConditionLayout()
     tempLabel->setFont(QFont("Calbiri", 12, QFont::Bold));
     tempLabel->setStyleSheet("color: rgba(47, 148, 41, 0.9);");
     QLabel* uvLabel = new QLabel("UV");
-    uvLabel->setFont(QFont("Calbiri", 12, QFont::Bold));
+    humidityLabel->setFont(QFont("Calibri", 12, QFont::Bold));
+    humidityLabel->setStyleSheet("color: rgba(47, 148, 41, 0.9);");
+    QLabel* tempLabel = new QLabel("Temp");
+    tempLabel->setFont(QFont("Calibri", 12, QFont::Bold));
+    tempLabel->setStyleSheet("color: rgba(47, 148, 41, 0.9);");
+    QLabel* uvLabel = new QLabel("UV");
+    uvLabel->setFont(QFont("Calibri", 12, QFont::Bold));
     uvLabel->setStyleSheet("color: rgba(47, 148, 41, 0.9);");
 
     // Add widgets to layout in pairs: label then button
