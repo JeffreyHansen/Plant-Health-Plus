@@ -42,7 +42,7 @@ void ConditionChart::setTemperatureChart(const QList<DayForecast> &data) {
     highSet->setPen(QPen(QColor(0x333333), 2));
 
     // Tooltip for high temps
-    connect(highSet, &QBarSet::hovered, this, [=](bool status, int index) {
+    connect(highSet, &QBarSet::hovered, this, [highSet](bool status, int index) {
         if (status) {
             QToolTip::showText(QCursor::pos(), QString("High: %1°").arg(highSet->at(index)));
         } else {
