@@ -2,18 +2,27 @@ cmake_minimum_required(VERSION 3.16)
 
 project(PlantHealthPlus VERSION 0.2.11 LANGUAGES CXX)
 
+if(NOT DEFINED CMAKE_PREFIX_PATH)
+	if(APPLE)
+		set(CMAKE_PREFIX_PATH "/opt/homebrew/opt/qt@6/lib/cmake")
+	elseif(WIN32)
+		set(CMAKE_PREFIX_PATH "C:/Qt/6.9.1/mingw_64/lib/cmake")
+	endif()
+endif()
+
+add_subdirectory(tests)
+
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/Debug)
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/Release)
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
-find_package(Qt6 COMPONENTS Network REQUIRED)
-find_package(Qt6 COMPONENTS Charts REQUIRED)
-find_package(Qt6 COMPONENTS Multimedia REQUIRED)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Network Charts Multimedia)
 
 set(PROJECT_SOURCES
         main.cpp
@@ -44,7 +53,7 @@ set(PROJECT_SOURCES
         logbookentrydialog.h
 )
 
-if(${QT_VERSION_MAJOR} GREATER_EQUAL 6)
+if(DEFINED QT_VERSION_MAJOR AND QT_VERSION_MAJOR GREATER_EQUAL 6)
     qt_add_executable(PlantHealthPlus
         MANUAL_FINALIZATION
         ${PROJECT_SOURCES}
@@ -80,9 +89,12 @@ target_link_libraries(PlantHealthPlus PRIVATE
 # Qt for iOS sets MACOSX_BUNDLE_GUI_IDENTIFIER automatically since Qt 6.1.
 # If you are developing for iOS or macOS you should consider setting an
 # explicit, fixed bundle identifier manually though.
-if(${QT_VERSION} VERSION_LESS 6.1.0)
-  set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.PlantHealthPlus)
+if(APPLE)
+    if(DEFINED QT_VERSION AND QT_VERSION VERSION_LESS 6.1.0)
+        set(BUNDLE_ID_OPTION MACOSX_BUNDLE_GUI_IDENTIFIER com.example.PlantHealthPlus)
+    endif()
 endif()
+
 set_target_properties(PlantHealthPlus PROPERTIES
     ${BUNDLE_ID_OPTION}
     MACOSX_BUNDLE_BUNDLE_VERSION ${PROJECT_VERSION}
@@ -99,11 +111,11 @@ install(TARGETS PlantHealthPlus
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
 )
 
-if(QT_VERSION_MAJOR EQUAL 6)
-    # Copy the icon file to the bundle Resources directory
+# Copy the icon file to the bundle Resources directory
+if(APPLE AND DEFINED QT_VERSION_MAJOR AND QT_VERSION_MAJOR EQUAL 6)
     set(ICON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/images/PHPlus_logo.icns")
     set_source_files_properties(${ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
     target_sources(PlantHealthPlus PRIVATE ${ICON_FILE})
-    
+
     qt_finalize_executable(PlantHealthPlus)
 endif()
