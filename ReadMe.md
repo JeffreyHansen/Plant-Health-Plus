@@ -49,3 +49,4 @@ A desktop plant-tracking software that provides the ability to track, monitor, a
 ---
 ## Contributors
 Jeffrey Hansen, Tal Faitelson, Daniel Hernandez Vigil, Ashley Flores
+

@@ -42,7 +42,7 @@ void ConditionChart::setTemperatureChart(const QList<DayForecast> &data) {
     highSet->setPen(QPen(QColor(0x333333), 2));
 
     // Tooltip for high temps
-    connect(highSet, &QBarSet::hovered, this, [=](bool status, int index) {
+    connect(highSet, &QBarSet::hovered, this, [highSet](bool status, int index) {
         if (status) {
             QToolTip::showText(QCursor::pos(), QString("High: %1°").arg(highSet->at(index)));
         } else {
@@ -57,7 +57,7 @@ void ConditionChart::setTemperatureChart(const QList<DayForecast> &data) {
     lowSet->setPen(QPen(QColor(0x333333), 2));
 
     // Create low temperature bar set
-    connect(lowSet, &QBarSet::hovered, this, [=](bool status, int index) {
+    connect(lowSet, &QBarSet::hovered, this, [lowSet](bool status, int index) {
         if (status) {
             QToolTip::showText(QCursor::pos(), QString("Low: %1°").arg(lowSet->at(index)));
         } else {
@@ -119,7 +119,7 @@ void ConditionChart::setUVChart(const QList<DayForecast> &data) {
     uvSet->setPen(QPen(QColor(0x333333), 2));
 
     // Tooltip for UV values
-    connect(uvSet, &QBarSet::hovered, this, [=](bool status, int index) {
+    connect(uvSet, &QBarSet::hovered, this, [uvSet](bool status, int index) {
         if (status) {
             QToolTip::showText(QCursor::pos(), QString("%1 out of 15").arg(uvSet->at(index)));
         } else {
@@ -173,7 +173,7 @@ void ConditionChart::setHumidityChart(const QList<DayForecast> &data) {
     humiditySet->setPen(QPen(QColor(0x333333), 2));
 
     // Tooltip for humidity values
-    connect(humiditySet, &QBarSet::hovered, this, [=](bool status, int index) {
+    connect(humiditySet, &QBarSet::hovered, this, [humiditySet, this](bool status, int index) {
         if (status) {
             QToolTip::showText(QCursor::pos(), QString("%1%").arg(humiditySet->at(index)));
         } else {
