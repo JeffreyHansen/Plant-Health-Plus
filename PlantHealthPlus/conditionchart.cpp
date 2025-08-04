@@ -57,7 +57,7 @@ void ConditionChart::setTemperatureChart(const QList<DayForecast> &data) {
     lowSet->setPen(QPen(QColor(0x333333), 2));
 
     // Create low temperature bar set
-    connect(lowSet, &QBarSet::hovered, this, [=](bool status, int index) {
+    connect(lowSet, &QBarSet::hovered, this, [lowSet](bool status, int index) {
         if (status) {
             QToolTip::showText(QCursor::pos(), QString("Low: %1°").arg(lowSet->at(index)));
         } else {
