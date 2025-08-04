@@ -8,7 +8,7 @@ A desktop plant-tracking software that provides the ability to track, monitor, a
 
 1. [Prerequisites](#prerequisites)
 2. [How to Use](#how-to-use)
-3. [Troubleshooting] (#troubleshooting)
+3. [Troubleshooting](#troubleshooting)
 3. [Contributors](#contributors)
 
 
