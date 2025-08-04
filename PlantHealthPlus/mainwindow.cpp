@@ -1016,7 +1016,7 @@ void MainWindow::onConditionClicked() {
     } else if (name == "humidity") {
         type = ConditionType::Humidity;
     } else {
-        qDebug() <<"Unknown condition, returning ungracefully.";
+        qDebug() << "Unknown condition, returning ungracefully.";
         return;
     }
 
