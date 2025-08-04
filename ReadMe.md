@@ -16,7 +16,7 @@ A desktop plant-tracking software that provides the ability to track, monitor, a
 
 - Qt 6.x
 - CMake 3.16 or higher
-- A compatiable C++ compiler
+- A compatible C++ compiler
 - Git (though optional, as it will be used for cloning)
 
 ## How to Use
