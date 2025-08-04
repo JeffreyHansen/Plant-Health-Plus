@@ -11,7 +11,7 @@ A desktop plant-tracking software that provides the ability to track, monitor, a
 3. [Troubleshooting] (#troubleshooting)
 3. [Contributors](#contributors)
 
----
+
 ## Prerequisites
 
 - Qt 6.x
@@ -19,17 +19,18 @@ A desktop plant-tracking software that provides the ability to track, monitor, a
 - A compatiable C++ compiler
 - Git (though optional, as it will be used for cloning)
 
----
 ## How to Use
 ### Windows:
 1. Clone the repository:
 
 > git clone https://github.com/JeffreyHansen/Plant-Health-Plus
+>
 > cd PlantHealthPlus
 
 2. Create a build directory and navigate to it:
 
 >mkdir build
+>
 >cd build
 
 3. Build the project (Release mode):
@@ -40,13 +41,13 @@ A desktop plant-tracking software that provides the ability to track, monitor, a
 
 >"C:/Qt/6.9.1/mingw_64/bin/windeployqt.exe" PlantHealthPlus.exe
 ### MacOS:
----
+
 ## Troubleshooting
 ### Windows:
 - Missing DLLs? Run windeployqt.
 - Permission issues? Run Command Prompt as Administrator.
 ### MacOS:
----
+
 ## Contributors
 Jeffrey Hansen, Tal Faitelson, Daniel Hernandez Vigil, Ashley Flores
 
