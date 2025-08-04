@@ -38,7 +38,7 @@ void PlantPediaWidget::onEntryFound(const PlantPediaEntry &entry)
     if (!entry.imageUrl.isEmpty())
         html += QString("<img src=\"%1\" width=\"200\"><br>").arg(entry.imageUrl);
     html += "<p>" + entry.extract + "</p>";
-    html += QString("<br><a href=\"https://en.wikipedia.org/wiki/%1\">Read more on Wikipedia</a>").arg(entry.title.replace(' ', '_'));
+    html += QString("<br><a href=\"https://en.wikipedia.org/wiki/%1\">Read more on Wikipedia</a>").arg(QString(QUrl::toPercentEncoding(entry.title.replace(' ', '_'))));
     m_resultLabel->setText(html);
     m_resultLabel->setTextFormat(Qt::RichText);
     m_resultLabel->setOpenExternalLinks(true);
