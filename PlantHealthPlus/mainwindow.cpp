@@ -2108,7 +2108,6 @@ void MainWindow::addNotification(const QString& message)
     qDebug() << "Adding notification:" << message;
     m_notifications.append(NotificationItem(message));
     updateNotificationBadge();
-    //playNotificationSound();
 }
 
 void MainWindow::updateNotificationBadge()
