@@ -25,8 +25,12 @@
 #include <QStyleHints>
 #include <QDebug>
 #include <QMap>
+#include <QPropertyAnimation>
+#include <QGraphicsOpacityEffect>
+#include "addplantdialog.h"
 #include <QIcon>
 #include "scraper.h"
+#include "forecastclient.h"
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -92,6 +96,9 @@ MainWindow::MainWindow(QWidget *parent)
     
     // Setup UI first
     ui->setupUi(this);
+
+    // Setup layout for condition buttons
+    setupConditionLayout();
     
     // Store reference to the main interface and hide it initially
     m_mainInterface = ui->centralwidget;
@@ -532,6 +539,18 @@ void MainWindow::showMainInterface()
     // Connect to theme changes
     connect(QApplication::styleHints(), &QStyleHints::colorSchemeChanged,
             this, &MainWindow::onThemeChanged);
+
+    // Connect forecast and check plants
+    forecastClient = new ForecastClient(this);
+    connect(forecastClient, &ForecastClient::forecastsReady,
+            this, &MainWindow::handleForecastNotification);
+
+    // Forecast-check timer
+    forecastTimer = new QTimer(this);
+    connect(forecastTimer, &QTimer::timeout, this, &MainWindow::checkForecastTemperature);
+    forecastTimer->start(24 * 60 * 60 * 1000);
+
+    QTimer::singleShot(0, this, &MainWindow::checkForecastTemperature);
 }
 
 void MainWindow::setupMyPlantsPage()
@@ -872,10 +891,206 @@ void MainWindow::setupLogbookPage()
     qDebug() << "setupLogbookPage completed";
 }
 
+void MainWindow::setupConditionLayout()
+{
+    // Initialize layout for Conditions container if it doesn't exist
+    if(!ui->Conditions->layout()) {
+        ui->Conditions->setLayout(new QVBoxLayout);
+    }
+
+    // Configure the vertical layout properties
+    QVBoxLayout* layout = qobject_cast<QVBoxLayout*>(ui->Conditions->layout());
+    layout->setContentsMargins(1, 10, 1, 1);
+    layout->setSpacing(10);
+
+    // Helper function to create consistent drop shadow effects
+    auto makeShadowEffect = []() {
+        QGraphicsDropShadowEffect* m_buttonEffect = new QGraphicsDropShadowEffect;
+        m_buttonEffect->setBlurRadius(10);
+        m_buttonEffect->setOffset(2, 2);
+        m_buttonEffect->setColor(QColor(0, 0, 0, 100));
+        return m_buttonEffect;
+    };
+
+    // Helper function to create standardized condition buttons
+    auto createConditionButton = [this]() -> QPushButton* {
+        QPushButton* btn = new QPushButton(this);
+        btn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+        btn->setFixedHeight(100);
+        btn->setStyleSheet(
+            "QPushButton {"
+            "    background-color: rgba(102, 248, 135, 0.2);"
+            "    color: #4CAF50;"
+            "    border: 2px solid #4CAF50;"
+            "    padding: 6px 12px;"
+            "    border-radius: 15px;"
+            "    font-weight: bold;"
+            "    max-width: 60px;"
+            "}"
+            "QPushButton:hover {"
+            "    background-color: rgba(102, 248, 135, 0.4);"
+            "}"
+            "QPushButton:pressed {"
+            "    background-color: rgba(102, 248, 135, 0.6);"
+            "}"
+            );
+        return btn;
+    };
+
+    // Create temperature button with icon and shadow
+    QPushButton* m_tempButton = createConditionButton();
+    m_tempButton->setObjectName("temp");
+    m_tempButton->setIcon(QIcon(":/images/images/thermometer_temp.png"));
+    m_tempButton->setIconSize(QSize(60, 60));
+    m_tempButton->setGraphicsEffect(makeShadowEffect());
+
+    // Create UV button with icon and shadow
+    QPushButton* m_uvButton = createConditionButton();
+    m_uvButton->setObjectName("uv");
+    m_uvButton->setIcon(QIcon(":/images/images/uv.png"));
+    m_uvButton->setIconSize(QSize(60, 60));
+    m_uvButton->setGraphicsEffect(makeShadowEffect());
+
+    // Create humidity button with icon and shadow
+    QPushButton* m_humidityButton = createConditionButton();
+    m_humidityButton->setObjectName("humidity");
+    m_humidityButton->setIcon(QIcon(":/images/images/humidity.png"));
+    m_humidityButton->setIconSize(QSize(80, 80));
+    m_humidityButton->setGraphicsEffect(makeShadowEffect());
+
+     // Connect all buttons to the same slot
+    connect(m_tempButton, &QPushButton::clicked, this, &MainWindow::onConditionClicked);
+    connect(m_uvButton, &QPushButton::clicked, this, &MainWindow::onConditionClicked);
+    connect(m_humidityButton, &QPushButton::clicked, this, &MainWindow::onConditionClicked);
+
+     // Create descriptive labels for each button
+    QLabel* humidityLabel = new QLabel("Humidity");
+    humidityLabel->setFont(QFont("Calbiri", 12, QFont::Bold));
+    humidityLabel->setStyleSheet("color: rgba(47, 148, 41, 0.9);");
+    QLabel* tempLabel = new QLabel("Temp");
+    tempLabel->setFont(QFont("Calbiri", 12, QFont::Bold));
+    tempLabel->setStyleSheet("color: rgba(47, 148, 41, 0.9);");
+    QLabel* uvLabel = new QLabel("UV");
+    humidityLabel->setFont(QFont("Calibri", 12, QFont::Bold));
+    humidityLabel->setStyleSheet("color: rgba(47, 148, 41, 0.9);");
+    QLabel* tempLabel = new QLabel("Temp");
+    tempLabel->setFont(QFont("Calibri", 12, QFont::Bold));
+    tempLabel->setStyleSheet("color: rgba(47, 148, 41, 0.9);");
+    QLabel* uvLabel = new QLabel("UV");
+    uvLabel->setFont(QFont("Calibri", 12, QFont::Bold));
+    uvLabel->setStyleSheet("color: rgba(47, 148, 41, 0.9);");
+
+    // Add widgets to layout in pairs: label then button
+    layout->addWidget(tempLabel, 0, Qt::AlignLeft);
+    layout->addWidget(m_tempButton);
+    layout->addWidget(uvLabel, 0, Qt::AlignLeft);
+    layout->addWidget(m_uvButton);
+    layout->addWidget(humidityLabel, 0, Qt::AlignLeft);
+    layout->addWidget(m_humidityButton);
+
+    // Add a stretch at the bottom to push buttons to top
+    layout->addStretch();
+}
+
 void MainWindow::onTabButtonClicked(int id)
 {
     // This slot receives the button ID and changes the page
     ui->stackedWidget->setCurrentIndex(id);
+}
+
+void MainWindow::onConditionClicked() {
+    static QMap<ConditionType, QWidget*> openCharts;
+
+    // Get the button that triggered this slot
+    QPushButton* clickedButton = qobject_cast<QPushButton*>(sender());
+    if (!clickedButton) return;
+
+    // Determine condition type from button's object name
+    QString name = clickedButton->objectName();
+    ConditionType type;
+
+    if (name == "temp") {
+        type = ConditionType::Temperature;
+    } else if (name == "uv") {
+        type = ConditionType::UV;
+    } else if (name == "humidity") {
+        type = ConditionType::Humidity;
+    } else {
+        qDebug() << "Unknown condition, returning ungracefully.";
+        return;
+    }
+
+    // Check if chart for this condition already exists
+    if (openCharts.contains(type)) {
+        QWidget *existing = openCharts[type];
+        if (existing && existing->isVisible()) {
+            existing->raise();
+            existing->activateWindow();
+            return;
+        } else {
+            openCharts.remove(type); // clean stale pointer
+        }
+    }
+
+    // Create new chart window
+    QWidget *chartWindow = new QWidget();
+    chartWindow->resize(600, 400);
+    chartWindow->setAttribute(Qt::WA_DeleteOnClose);
+
+    // Create chart widget and forecast client
+    ConditionChart *chartWidget = new ConditionChart(type, chartWindow);
+    ForecastClient *client = new ForecastClient(chartWindow);
+
+    // Connect data ready signal to chart update slot, and request forecast data
+    connect(client, &ForecastClient::forecastsReady,
+            chartWidget, &ConditionChart::updateChart);
+
+    client->getURL();
+
+    // Provide layout
+    QVBoxLayout *layout = new QVBoxLayout(chartWindow);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(chartWidget);
+    chartWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    chartWindow->setLayout(layout);
+
+    // Track the new window, or clear window when it is destroyed
+    openCharts[type] = chartWindow;
+
+    connect(chartWindow, &QWidget::destroyed, [type]() {
+        openCharts.remove(type);
+    });
+
+    // Set window title based on condition type
+    QString title;
+    switch(type) {
+        case ConditionType::Temperature:
+            title = "Temperature Chart";
+            break;
+        case ConditionType::UV:
+            title = "UV Index Chart";
+            break;
+        case ConditionType::Humidity:
+            title = "Humidity Index Chart";
+            break;
+        default:
+            break;
+    }
+
+    // Show and focus the new window
+    chartWindow->setWindowTitle(title);
+    chartWindow->show();
+    chartWindow->raise();
+    chartWindow->activateWindow();
+
+    // Then, raise all other open charts (except this one)
+    for (auto i = openCharts.begin(); i != openCharts.end(); ++i) {
+        QWidget* w = i.value();
+        if (w && w->isVisible()) {
+            w->raise();
+            w->activateWindow();
+        }
+    }
 }
 
 void MainWindow::onAddPlantClicked()
@@ -1013,7 +1228,7 @@ void MainWindow::updatePlantGrid()
         QString area = plantData.houseArea.isEmpty() ? "Unassigned" : plantData.houseArea;
         plantsByArea[area].append(qMakePair(plantData, i));
     }
-    
+
     // Calculate responsive columns based on available width
     int availableWidth = m_plantsScrollArea->viewport()->width();
     int cardWidth = PlantCard::CARD_WIDTH;
@@ -1615,7 +1830,7 @@ bool MainWindow::eventFilter(QObject* object, QEvent* event)
             }
         }
     }
-    
+
     return QMainWindow::eventFilter(object, event);
 }
 
@@ -1893,19 +2108,23 @@ void MainWindow::addNotification(const QString& message)
     qDebug() << "Adding notification:" << message;
     m_notifications.append(NotificationItem(message));
     updateNotificationBadge();
-    playNotificationSound();
 }
 
 void MainWindow::updateNotificationBadge()
 {
+    if (!m_notificationBadge) {
+        qWarning() << "updateNotificationBadge called, but m_notificationBadge is nullptr!";
+        return;
+    }
+
     // Count unread notifications
     int unreadCount = 0;
-    for (const auto& notification : m_notifications) {
+    for (const auto& notification : std::as_const(m_notifications)) {
         if (!notification.isRead) {
             unreadCount++;
         }
     }
-    
+
     if (unreadCount > 0) {
         m_notificationBadge->setText(QString::number(unreadCount));
         m_notificationBadge->show();
@@ -2240,4 +2459,68 @@ void MainWindow::checkPlantConditions()
     }
 }
 
+void MainWindow::checkForecastTemperature() {
+    forecastClient->getURL();
+}
+
+void MainWindow::handleForecastNotification(const QList<DayForecast> &forecasts) {
+    // Get tomorrow's data and check plant manager availability
+    QDate tomorrow = QDate::currentDate().addDays(1);
+    if (!m_plantManager) return;
+
+    // Find tomorrow's forecast from the list
+    const DayForecast* tomorrowForecast = nullptr;
+    for (const DayForecast &day : forecasts) {
+        if (day.date == tomorrow) {
+            tomorrowForecast = &day;
+            break;
+        }
+    }
+    if (!tomorrowForecast) return;
+
+    // Extract forecast data for easier access
+    QString dateStr = tomorrow.toString(Qt::ISODate);
+    int highTemp = tomorrowForecast->highTemp;
+    int humidity = tomorrowForecast->humidity;
+    int uvIndex = tomorrowForecast->UV;
+
+
+    // Process each plant's ranges against tomorrow's forecast
+    int plantCount = m_plantManager->getPlantCount();
+    for (int i = 0; i < plantCount; ++i) {
+        PlantData plant = m_plantManager->getPlant(i);
+
+        // Temperature high
+        QString tempHighKey = QString("%1_forecast_temp_high_%2").arg(plant.name, dateStr);
+        if (highTemp >= plant.tempRangeHigh && !m_sentNotifications.contains(tempHighKey)) {
+            addNotification(QString("Warning! %1's temperature is %2°F, which is going to be too hot for %3! Consider moving it to a shaded spot.")
+                                .arg(tomorrowForecast->dayName).arg(highTemp).arg(plant.name));
+            m_sentNotifications.insert(tempHighKey);
+        }
+
+        // Humidity low
+        QString humidityLowKey = QString("%1_forecast_humidity_low_%2").arg(plant.name, dateStr);
+        if (humidity <= plant.humidityRangeLow && !m_sentNotifications.contains(humidityLowKey)) {
+            addNotification(QString("Warning! %1's humidity is %2%, which is below your %3's ideal humidity range. Consider misting it or moving it to a more humid spot.")
+                                .arg(tomorrowForecast->dayName).arg(humidity).arg(plant.name));
+            m_sentNotifications.insert(humidityLowKey);
+        }
+
+        // Humidity high
+        QString humidityHighKey = QString("%1_forecast_humidity_high_%2").arg(plant.name, dateStr);
+        if (humidity >= plant.humidityRangeHigh && !m_sentNotifications.contains(humidityHighKey)) {
+            addNotification(QString("Warning! %1's humidity is %2%, which is above your %3's ideal humidity range. Watch out for fungal growth and provide good air circulation.")
+                                .arg(tomorrowForecast->dayName).arg(humidity).arg(plant.name));
+            m_sentNotifications.insert(humidityHighKey);
+        }
+
+        // UV high
+        QString uvHighKey = QString("%1_forecast_uv_high_%2").arg(plant.name, dateStr);
+        if (uvIndex >= plant.uvRangeHigh && !m_sentNotifications.contains(uvHighKey)) {
+            addNotification(QString("Warning! %1's UV Index is %2, which might damage your %3! Consider shading or moving indoors.")
+                                .arg(tomorrowForecast->dayName).arg(uvIndex).arg(plant.name));
+            m_sentNotifications.insert(uvHighKey);
+        }
+    }
+}
 
