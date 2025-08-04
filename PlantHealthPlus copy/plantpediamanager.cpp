@@ -24,7 +24,7 @@ void PlantPediaManager::searchPlant(const QString &query)
 
 void PlantPediaManager::onWikiReply(QNetworkReply *reply)
 {
-    if (reply->error()) {
+    if (reply->error() != QNetworkReply::NoError) {
         emit errorOccurred(reply->errorString());
         reply->deleteLater();
         return;
