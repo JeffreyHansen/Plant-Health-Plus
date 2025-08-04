@@ -10,7 +10,9 @@ if(NOT DEFINED CMAKE_PREFIX_PATH)
 	endif()
 endif()
 
-add_subdirectory(tests)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests")
+    add_subdirectory(tests)
+endif()
 
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOMOC ON)
