@@ -1,5 +1,5 @@
 {
-    "cmake.sourceDirectory": "/Users/daniel/Desktop/Plant-Health-Plus/PlantHealthPlus copy",
+    "cmake.sourceDirectory": "${workspaceFolder}",
     "files.associations": {
         "deque": "cpp",
         "string": "cpp",
