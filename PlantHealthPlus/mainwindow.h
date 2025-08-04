@@ -41,6 +41,7 @@
 #include "usermanager.h"
 #include "logbookmanager.h"
 #include "logbookentrydialog.h"
+#include "testrunner.h"
 
 // Notification structure
 struct NotificationItem {
@@ -113,6 +114,7 @@ private:
     void setupPlantUILayout();
     void updateAllPlantCardsEnvironmentalData();
     void showSettingsDialog();
+    void showTestRunner();
     void setupNotificationButton();
     void updateNotificationBadge();
     void updateForecastNotification();

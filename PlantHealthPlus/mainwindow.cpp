@@ -1990,6 +1990,35 @@ void MainWindow::showSettingsDialog()
     // Add spacer
     layout->addStretch();
     
+    // Unit Test Runner button
+    QPushButton* testRunnerButton = new QPushButton("Run Unit Tests", settingsDialog);
+    testRunnerButton->setStyleSheet(
+        "QPushButton {"
+        "    background-color: #2196F3;"
+        "    color: white;"
+        "    padding: 10px 20px;"
+        "    border: none;"
+        "    border-radius: 4px;"
+        "    font-size: 14px;"
+        "    font-weight: bold;"
+        "}"
+        "QPushButton:hover {"
+        "    background-color: #1976D2;"
+        "}"
+        "QPushButton:pressed {"
+        "    background-color: #0D47A1;"
+        "}"
+    );
+    
+    connect(testRunnerButton, &QPushButton::clicked, [this, settingsDialog]() {
+        showTestRunner();
+    });
+    
+    layout->addWidget(testRunnerButton);
+    
+    // Add small spacer
+    layout->addSpacing(10);
+    
     // Logout button
     QPushButton* logoutButton = new QPushButton("Logout", settingsDialog);
     logoutButton->setStyleSheet(
@@ -2020,6 +2049,13 @@ void MainWindow::showSettingsDialog()
     // Show the dialog
     settingsDialog->exec();
     settingsDialog->deleteLater();
+}
+
+void MainWindow::showTestRunner()
+{
+    TestRunnerDialog* testDialog = new TestRunnerDialog(this);
+    testDialog->exec();
+    testDialog->deleteLater();
 }
 
 void MainWindow::setupNotificationButton()

@@ -53,6 +53,8 @@ set(PROJECT_SOURCES
         logbookmanager.h
         logbookentrydialog.cpp
         logbookentrydialog.h
+        testrunner.cpp
+        testrunner.h
 )
 
 if(DEFINED QT_VERSION_MAJOR AND QT_VERSION_MAJOR GREATER_EQUAL 6)
