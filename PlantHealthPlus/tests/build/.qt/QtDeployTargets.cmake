@@ -1,0 +1,4 @@
+set(__QT_DEPLOY_TARGET_PlantHealthPlus_ComprehensiveTests_FILE /Users/jeffrey/Documents/Plant_Health+/Plant-Health-Plus/PlantHealthPlus/tests/build/PlantHealthPlus_ComprehensiveTests)
+set(__QT_DEPLOY_TARGET_PlantHealthPlus_ComprehensiveTests_TYPE EXECUTABLE)
+set(__QT_DEPLOY_TARGET_TestResultsGenerator_FILE /Users/jeffrey/Documents/Plant_Health+/Plant-Health-Plus/PlantHealthPlus/tests/build/TestResultsGenerator)
+set(__QT_DEPLOY_TARGET_TestResultsGenerator_TYPE EXECUTABLE)
