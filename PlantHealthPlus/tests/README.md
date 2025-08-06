@@ -127,3 +127,5 @@ Failed: 0
 Success Rate: 100%
 =================================
 ```
+
+## Test Results are stored in build/test_results.txt
